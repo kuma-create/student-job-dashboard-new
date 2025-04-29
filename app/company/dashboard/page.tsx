@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import CompanyDashboardClient from "./company-dashboard-client"
 
-export const dynamic = "force_dynamic"
+export const dynamic = "force-dynamic"
 
 export default async function CompanyDashboardPage() {
   const supabase = createClient()
