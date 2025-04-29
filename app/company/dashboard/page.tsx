@@ -34,25 +34,38 @@ export default async function CompanyDashboardPage() {
   }
 
   // 承認待ちの場合はペンディングページにリダイレクト
-  if (roleData && !roleData.is_approved) {
+  if (roleData && roleData.is_approved === false) {
     redirect("/company/pending")
   }
 
-  // 企業情報を取得
-  const { data: companyData } = await supabase.from("companies").select("*").eq("user_id", user.id).single()
+  // ---ここを修正---
+  // 企業情報を company_users 経由で取得する（正確に企業を紐付ける）
+  const { data: companyUser } = await supabase
+    .from("company_users")
+    .select("company_id")
+    .eq("user_id", user.id)
+    .single()
+
+  const companyId = companyUser?.company_id
+
+  const { data: companyData } = await supabase
+    .from("companies")
+    .select("*")
+    .eq("id", companyId)
+    .single()
 
   // 求人情報を取得
   const { data: jobPostings } = await supabase
     .from("job_postings")
     .select("*")
-    .eq("company_id", companyData?.id || user.id)
+    .eq("company_id", companyId)
     .order("created_at", { ascending: false })
 
   // 応募情報を取得
   const { data: applications } = await supabase
     .from("applications")
     .select("*, job_postings(*), profiles(*)")
-    .eq("company_id", companyData?.id || user.id)
+    .eq("company_id", companyId)
     .order("created_at", { ascending: false })
 
   return (
