@@ -57,19 +57,29 @@ export function AuthForm({
           return
         }
   
-        console.log("ログイン成功、ユーザーロール取得開始")
+        // セッションを確認（←これが重要！）
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
   
-        // ログイン後、ユーザー情報を取得
-        const { data: { user } } = await supabase.auth.getUser()
+        if (sessionError || !sessionData.session) {
+          console.error("セッション取得エラー:", sessionError?.message)
+          setError("ログイン後のセッション取得に失敗しました。もう一度お試しください。")
+          setLoading(false)
+          return
+        }
   
-        if (!user) {
-          console.error("ユーザー情報の取得に失敗")
+        console.log("ログイン成功、ユーザー情報取得開始")
+  
+        // ユーザー情報取得
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+  
+        if (userError || !user) {
+          console.error("ユーザー情報の取得に失敗:", userError?.message)
           setError("ログイン後にユーザー情報の取得に失敗しました")
           setLoading(false)
           return
         }
   
-        // user_rolesテーブルからロール取得
+        // ユーザーロールの取得
         const { data: userRole, error: roleFetchError } = await supabase
           .from("user_roles")
           .select("role")
@@ -93,9 +103,17 @@ export function AuthForm({
         }
   
         return
-      } else {
-        // === サインアップ処理 ===
-        console.log("サインアップ処理を開始...", userType)
+      }
+  
+      // ここは signup の処理（省略）
+    } catch (err) {
+      console.error("認証エラー:", err)
+      setError("予期せぬエラーが発生しました。もう一度お試しください。")
+    } finally {
+      setLoading(false)
+    }
+  }
+  
   
         const { data: userData, error } = await supabase.auth.signUp({
           email,
