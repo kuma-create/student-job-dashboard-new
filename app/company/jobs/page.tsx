@@ -1,10 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
-import CompanyJobsClient from "./company-jobs-client"
+import { redirect, notFound } from "next/navigation"
+import JobEditForm from "./job-edit-form"
 
-export const dynamic = "force-dynamic"
-
-export default async function CompanyJobsPage() {
+export default async function EditJobPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
 
   // セッションの取得
@@ -46,28 +44,28 @@ export default async function CompanyJobsPage() {
   }
 
   // 求人情報を取得
-  const { data: jobs } = await supabase
+  const { data: job } = await supabase
     .from("job_postings")
     .select("*")
+    .eq("id", params.id)
     .eq("company_id", companyUser.company_id)
-    .order("created_at", { ascending: false })
+    .single()
 
-  // 応募情報を取得（求人ごとの応募数を計算するため）
-  const { data: applications } = await supabase
-    .from("applications")
-    .select("job_id")
-    .eq("company_id", companyUser.company_id)
+  if (!job) {
+    notFound()
+  }
 
-  // 求人ごとの応募数を計算
-  const applicationCounts = applications
-    ? applications.reduce((acc: Record<string, number>, app) => {
-        const jobId = app.job_id
-        acc[jobId] = (acc[jobId] || 0) + 1
-        return acc
-      }, {})
-    : {}
+  // 企業情報の取得
+  const { data: company } = await supabase
+    .from("companies")
+    .select("id, name, industry, location")
+    .eq("id", companyUser.company_id)
+    .single()
 
   return (
-    <CompanyJobsClient jobs={jobs || []} applicationCounts={applicationCounts} companyId={companyUser.company_id} />
+    <div className="container mx-auto py-8 px-4">
+      <h1 className="text-2xl font-bold mb-6">求人を編集</h1>
+      <JobEditForm job={job} company={company} userId={session.user.id} />
+    </div>
   )
 }
