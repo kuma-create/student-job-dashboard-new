@@ -45,27 +45,32 @@ export default async function CompanyApplicationsPage() {
 
   // 企業の求人に対する応募を取得
   const { data: applications } = await supabase
-    .from("applications")
-    .select(`
-      *,
-      jobs:job_id (
-        id,
-        job_title,
-        location,
-        employment_type
-      ),
-      students:student_id (
-        id,
-        first_name,
-        last_name,
-        university,
-        major,
-        graduation_year,
-        avatar_url
-      )
-    `)
-    .eq("jobs.company_id", companyUser.company_id)
-    .order("created_at", { ascending: false })
+  .from("applications")
+  .select(`
+    id,
+    status,
+    motivation,
+    self_pr,
+    created_at,
+    job_postings (
+      id,
+      title,
+      location,
+      job_type
+    ),
+    student_profiles (
+      id,
+      first_name,
+      last_name,
+      university,
+      major,
+      graduation_year,
+      avatar_url
+    )
+  `)
+  .eq("job_postings.company_id", companyUser.company_id)
+  .order("created_at", { ascending: false })
+
 
   return <CompanyApplicationsClient applications={applications || []} />
 }

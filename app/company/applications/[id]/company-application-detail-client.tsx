@@ -285,6 +285,13 @@ export default function CompanyApplicationDetailClient({ application }: CompanyA
                 <MessageSquare className="mr-2 h-4 w-4" />
                 メッセージを送る
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push(`/company/applications/${application.id}/interview-schedule`)}
+              >
+                <Calendar className="mr-2 h-4 w-4" />
+                面接日程管理
+              </Button>
             </CardFooter>
           </Card>
         </div>
