@@ -34,15 +34,17 @@ export default async function CompanyJobsPage() {
   }
 
   // 企業ユーザー情報を取得
-  const { data: companyUser } = await supabase
+// 企業ユーザー情報を取得（エラーハンドリング付き）
+  const { data: companyUser, error: companyUserError } = await supabase
     .from("company_users")
     .select("company_id")
     .eq("user_id", session.user.id)
     .single()
 
-  if (!companyUser) {
+  if (companyUserError || !companyUser) {
     redirect("/company/dashboard")
   }
+
 
   const companyId = companyUser.company_id
 
@@ -56,7 +58,9 @@ export default async function CompanyJobsPage() {
   // 各求人ごとの応募数をまとめて取得
   const { data: applications } = await supabase
     .from("applications")
-    .select("job_id", { count: "exact", head: false })
+    .select("job_id")
+    .eq("company_id", companyId) // ← 応募側のデータ構造で必要に応じて
+
 
   // 求人IDごとに応募数をカウント
   const applicationCounts: Record<string, number> = {}
