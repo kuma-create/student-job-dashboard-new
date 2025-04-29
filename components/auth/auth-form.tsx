@@ -39,82 +39,77 @@ export function AuthForm({
     setLoading(true)
     setError(null)
     setSuccessMessage(null)
-  
+
     try {
       if (type === "signin") {
         console.log("ログイン処理を開始...")
-  
+
         // ログイン処理
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
         })
-  
+
         if (signInError) {
           console.error("ログインエラー:", signInError.message)
           setError(`ログインエラー: ${signInError.message}`)
           setLoading(false)
           return
         }
-  
+
         // セッションを確認（←これが重要！）
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-  
+
         if (sessionError || !sessionData.session) {
           console.error("セッション取得エラー:", sessionError?.message)
           setError("ログイン後のセッション取得に失敗しました。もう一度お試しください。")
           setLoading(false)
           return
         }
-  
+
         console.log("ログイン成功、ユーザー情報取得開始")
-  
+
         // ユーザー情報取得
-        const { data: { user }, error: userError } = await supabase.auth.getUser()
-  
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser()
+
         if (userError || !user) {
           console.error("ユーザー情報の取得に失敗:", userError?.message)
           setError("ログイン後にユーザー情報の取得に失敗しました")
           setLoading(false)
           return
         }
-  
+
         // ユーザーロールの取得
         const { data: userRole, error: roleFetchError } = await supabase
           .from("user_roles")
           .select("role")
           .eq("id", user.id)
           .single()
-  
+
         if (roleFetchError || !userRole) {
           console.error("ユーザーロール取得エラー:", roleFetchError?.message)
           setError("ユーザーロールの取得に失敗しました")
           setLoading(false)
           return
         }
-  
+
         console.log("ユーザーロール:", userRole.role)
-  
+
         // ロールに応じてリダイレクト
         if (userRole.role === "company") {
           window.location.href = redirectUrl || "/company/dashboard"
         } else {
           window.location.href = "/dashboard"
         }
-  
+
         return
-      }
-  
-      // ここは signup の処理（省略）
-    } catch (err) {
-      console.error("認証エラー:", err)
-      setError("予期せぬエラーが発生しました。もう一度お試しください。")
-    } finally {
-      setLoading(false)
-    }
-  }
-  
-  
+      } else {
+        // === サインアップ処理 ===
+        console.log("サインアップ処理を開始...", userType)
+
         const { data: userData, error } = await supabase.auth.signUp({
           email,
           password,
@@ -127,16 +122,16 @@ export function AuthForm({
             emailRedirectTo: `${window.location.origin}/auth/callback?userType=${userType}`,
           },
         })
-  
+
         if (error) {
           console.error("登録エラー:", error.message)
           setError(`登録エラー: ${error.message}`)
           setLoading(false)
           return
         }
-  
+
         console.log("サインアップ成功", userData)
-  
+
         if (userData.user) {
           const { error: roleError } = await supabase.from("user_roles").insert([
             {
@@ -145,18 +140,18 @@ export function AuthForm({
               is_approved: userType === "student" ? true : false,
             },
           ])
-  
+
           if (roleError) {
             console.error("ロール設定エラー:", roleError.message)
           }
         }
-  
+
         if (process.env.NODE_ENV === "development") {
           const { error: signInError } = await supabase.auth.signInWithPassword({
             email,
             password,
           })
-  
+
           if (!signInError) {
             if (userType === "company") {
               window.location.href = "/company/dashboard"
@@ -166,7 +161,7 @@ export function AuthForm({
             return
           }
         }
-  
+
         setSuccessMessage("登録が完了しました。確認メールを送信しましたので、メールボックスを確認してください。")
         setEmail("")
         setPassword("")
@@ -180,7 +175,6 @@ export function AuthForm({
       setLoading(false)
     }
   }
-  
 
   return (
     <div className="w-full">
