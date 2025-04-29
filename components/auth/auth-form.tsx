@@ -39,32 +39,64 @@ export function AuthForm({
     setLoading(true)
     setError(null)
     setSuccessMessage(null)
-
+  
     try {
       if (type === "signin") {
         console.log("ログイン処理を開始...")
-
+  
         // ログイン処理
-        const { error } = await supabase.auth.signInWithPassword({
+        const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
         })
-
-        if (error) {
-          console.error("ログインエラー:", error.message)
-          setError(`ログインエラー: ${error.message}`)
+  
+        if (signInError) {
+          console.error("ログインエラー:", signInError.message)
+          setError(`ログインエラー: ${signInError.message}`)
           setLoading(false)
           return
         }
-
-        console.log("ログイン成功、リダイレクト先:", redirectUrl)
-
-        // ログイン成功後、ページをリロード
-        window.location.href = redirectUrl
+  
+        console.log("ログイン成功、ユーザーロール取得開始")
+  
+        // ログイン後、ユーザー情報を取得
+        const { data: { user } } = await supabase.auth.getUser()
+  
+        if (!user) {
+          console.error("ユーザー情報の取得に失敗")
+          setError("ログイン後にユーザー情報の取得に失敗しました")
+          setLoading(false)
+          return
+        }
+  
+        // user_rolesテーブルからロール取得
+        const { data: userRole, error: roleFetchError } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("id", user.id)
+          .single()
+  
+        if (roleFetchError || !userRole) {
+          console.error("ユーザーロール取得エラー:", roleFetchError?.message)
+          setError("ユーザーロールの取得に失敗しました")
+          setLoading(false)
+          return
+        }
+  
+        console.log("ユーザーロール:", userRole.role)
+  
+        // ロールに応じてリダイレクト
+        if (userRole.role === "company") {
+          window.location.href = redirectUrl || "/company/dashboard"
+        } else {
+          window.location.href = "/dashboard"
+        }
+  
+        return
       } else {
+        // === サインアップ処理 ===
         console.log("サインアップ処理を開始...", userType)
-
-        // サインアップ処理
+  
         const { data: userData, error } = await supabase.auth.signUp({
           email,
           password,
@@ -72,47 +104,42 @@ export function AuthForm({
             data: {
               full_name: fullName,
               company_name: userType === "company" ? companyName : null,
-              user_type: userType, // ユーザータイプを明示的に設定
+              user_type: userType,
             },
             emailRedirectTo: `${window.location.origin}/auth/callback?userType=${userType}`,
           },
         })
-
+  
         if (error) {
           console.error("登録エラー:", error.message)
           setError(`登録エラー: ${error.message}`)
           setLoading(false)
           return
         }
-
+  
         console.log("サインアップ成功", userData)
-
-        // user_rolesテーブルにレコードを作成
+  
         if (userData.user) {
           const { error: roleError } = await supabase.from("user_roles").insert([
             {
               id: userData.user.id,
               role: userType,
-              is_approved: userType === "student" ? true : false, // 学生は自動承認、企業は承認待ち
+              is_approved: userType === "student" ? true : false,
             },
           ])
-
+  
           if (roleError) {
             console.error("ロール設定エラー:", roleError.message)
-            // ロール設定エラーはユーザーには表示せず、ログのみ
           }
         }
-
-        // 開発環境では自動的にログイン
+  
         if (process.env.NODE_ENV === "development") {
           const { error: signInError } = await supabase.auth.signInWithPassword({
             email,
             password,
           })
-
+  
           if (!signInError) {
-            console.log("開発環境での自動ログイン成功")
-            // 企業ユーザーの場合は企業ダッシュボードへ
             if (userType === "company") {
               window.location.href = "/company/dashboard"
             } else {
@@ -121,7 +148,7 @@ export function AuthForm({
             return
           }
         }
-
+  
         setSuccessMessage("登録が完了しました。確認メールを送信しましたので、メールボックスを確認してください。")
         setEmail("")
         setPassword("")
@@ -135,6 +162,7 @@ export function AuthForm({
       setLoading(false)
     }
   }
+  
 
   return (
     <div className="w-full">
