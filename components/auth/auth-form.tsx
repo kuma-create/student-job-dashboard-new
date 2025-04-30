@@ -100,9 +100,14 @@ export function AuthForm({
 
         // ロールに応じてリダイレクト
         if (userRole.role === "company") {
-          window.location.href = redirectUrl || "/company/dashboard"
+          window.location.href = "/company/dashboard"
         } else {
-          window.location.href = "/dashboard"
+          // redirectUrlが/auth/signinを含む場合は、単純に/dashboardにリダイレクト
+          if (redirectUrl && redirectUrl.includes("/auth/signin")) {
+            window.location.href = "/dashboard"
+          } else {
+            window.location.href = redirectUrl || "/dashboard"
+          }
         }
 
         return

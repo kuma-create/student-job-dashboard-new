@@ -51,6 +51,13 @@ export async function middleware(req: NextRequest) {
     if (!session && isProtectedRoute) {
       // 未認証でprotectedルートにアクセスした場合
       console.log("ミドルウェア: 未認証ユーザーが保護されたルートにアクセス:", path)
+
+      // 既にリダイレクトループが発生している可能性をチェック
+      if (path === "/dashboard" && req.nextUrl.search.includes("redirect=%2Fdashboard")) {
+        // リダイレクトループを防止するため、クエリパラメータなしでログインページに遷移
+        return NextResponse.redirect(new URL("/auth/signin", req.url))
+      }
+
       const redirectUrl = new URL("/auth/signin", req.url)
       redirectUrl.searchParams.set("redirect", path)
       return NextResponse.redirect(redirectUrl)
@@ -69,6 +76,23 @@ export async function middleware(req: NextRequest) {
 
       console.log("ミドルウェア: ユーザーロール:", userRole)
 
+      // リダイレクトループを防止するためのチェック
+      const hasRedirectParam = req.nextUrl.searchParams.has("redirect")
+      const redirectParam = req.nextUrl.searchParams.get("redirect")
+
+      // リダイレクトパラメータが存在し、それが/auth/signinを含む場合はループを防止
+      if (hasRedirectParam && redirectParam && redirectParam.includes("/auth/signin")) {
+        // ユーザーロールに基づいてリダイレクト
+        if (userRole?.role === "company") {
+          if (userRole.is_approved === false) {
+            return NextResponse.redirect(new URL("/company/pending", req.url))
+          }
+          return NextResponse.redirect(new URL("/company/dashboard", req.url))
+        }
+        return NextResponse.redirect(new URL("/dashboard", req.url))
+      }
+
+      // 通常のリダイレクト処理
       // ユーザーロールに基づいてリダイレクト
       if (userRole?.role === "company") {
         if (userRole.is_approved === false) {

@@ -90,6 +90,13 @@ export async function GET(request: Request) {
       }
 
       // 学生ユーザーまたはロールが不明な場合はデフォルトのリダイレクト先へ
+      if (redirectTo.includes("/auth/signin")) {
+        const response = NextResponse.redirect(`${requestUrl.origin}/dashboard`)
+        response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate")
+        return response
+      }
+
+      // 学生ユーザーまたはロールが不明な場合はデフォルトのリダイレクト先へ
       const response = NextResponse.redirect(`${requestUrl.origin}${redirectTo}`)
       response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate")
       return response
