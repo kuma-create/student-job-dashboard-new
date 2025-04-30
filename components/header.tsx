@@ -22,10 +22,18 @@ export function Header() {
     const supabase = createClient()
 
     const checkSession = async () => {
+      console.log("🔍 checkSession 開始")
       try {
         const {
           data: { session },
+          error,
         } = await supabase.auth.getSession()
+
+        if (error) {
+          console.error("❌ getSession エラー:", error)
+        }
+
+        console.log("✅ getSession 結果:", session)
 
         setUser(session?.user || null)
 
@@ -36,6 +44,8 @@ export function Header() {
             .eq("id", session.user.id)
             .single()
 
+          console.log("✅ ロール取得:", roleData?.role)
+
           if (!roleError) {
             setUserRole(roleData?.role || null)
 
@@ -45,26 +55,28 @@ export function Header() {
                 .select("*")
                 .eq("id", session.user.id)
                 .single()
-
               setProfile(profileData)
             } else if (roleData?.role === "company") {
               setProfile({
                 company_name: session.user.user_metadata?.company_name || "企業名未設定",
               })
             }
+          } else {
+            console.error("❌ ロール取得エラー:", roleError)
           }
         }
       } catch (error) {
-        console.error("セッション取得エラー:", error)
+        console.error("❌ セッション取得中の例外:", error)
       } finally {
         setLoading(false)
+        console.log("✅ setLoading(false) 実行")
       }
     }
 
     checkSession()
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth state changed:", event, session?.user?.id)
+      console.log("🔄 Auth state changed:", event, session?.user?.id)
 
       setUser(session?.user || null)
 
@@ -77,7 +89,7 @@ export function Header() {
             .single()
 
           if (roleError) {
-            console.error("ユーザーロール取得エラー:", roleError)
+            console.error("❌ ロール取得エラー:", roleError)
             setUserRole(null)
             setProfile(null)
             return
@@ -99,7 +111,7 @@ export function Header() {
             })
           }
         } catch (error) {
-          console.error("ユーザーロール/プロフィール更新エラー:", error)
+          console.error("❌ ロール再取得エラー:", error)
           setUserRole(null)
           setProfile(null)
         }
@@ -114,6 +126,12 @@ export function Header() {
     }
   }, [])
 
+  useEffect(() => {
+    console.log("🔎 状態更新: loading =", loading)
+    console.log("🔎 user =", user)
+    console.log("🔎 userRole =", userRole)
+  }, [loading, user, userRole])
+
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen)
 
   const isActive = (path: string) =>
@@ -122,7 +140,6 @@ export function Header() {
   const getDashboardLink = () =>
     userRole === "company" ? "/company/dashboard" : "/dashboard"
 
-  // ✅ 認証状態確認中の仮ヘッダー表示
   if (loading) {
     return (
       <header className="sticky top-0 z-40 w-full border-b bg-white h-16" />
