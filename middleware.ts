@@ -1,24 +1,10 @@
 import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import type { Database } from "@/lib/database.types"
 
 export async function middleware(req: NextRequest) {
-  console.log("ミドルウェア実行:", req.nextUrl.pathname)
-
-  // パスワードリセット関連のルートは処理をスキップ
-  if (
-    req.nextUrl.pathname === "/auth/callback" ||
-    req.nextUrl.pathname === "/auth/signout" ||
-    req.nextUrl.pathname === "/auth/update-password" ||
-    req.nextUrl.pathname === "/auth/reset-password"
-  ) {
-    console.log("認証関連ルート、スキップします:", req.nextUrl.pathname)
-    return NextResponse.next()
-  }
-
   const res = NextResponse.next()
-  const supabase = createMiddlewareClient<Database>({ req, res })
+  const supabase = createMiddlewareClient({ req, res })
 
   try {
     // セッションのみ確認（最小限のチェック）
@@ -34,6 +20,18 @@ export async function middleware(req: NextRequest) {
     // 現在のパス
     const path = req.nextUrl.pathname
 
+    // リダイレクトループを検出
+    const isRedirectLoop =
+      req.nextUrl.searchParams.has("redirect") &&
+      req.nextUrl.searchParams.get("redirect") === "/dashboard" &&
+      path === "/auth/signin"
+
+    // リダイレクトループが検出され、かつセッションが存在する場合は直接ダッシュボードへ
+    if (isRedirectLoop && session) {
+      console.log("ミドルウェア: リダイレクトループを検出、ダッシュボードへ直接遷移")
+      return NextResponse.redirect(new URL("/dashboard", req.url))
+    }
+
     // 認証が必要なルートへの未認証アクセスをリダイレクト
     const isAuthRoute =
       path.startsWith("/auth") &&
@@ -48,69 +46,55 @@ export async function middleware(req: NextRequest) {
       path.startsWith("/chat") ||
       path === "/dashboard"
 
-    if (!session && isProtectedRoute) {
-      // 未認証でprotectedルートにアクセスした場合
-      console.log("ミドルウェア: 未認証ユーザーが保護されたルートにアクセス:", path)
+    // 現在のパスを取得
+    // const path = req.nextUrl.pathname
 
-      // 既にリダイレクトループが発生している可能性をチェック
-      if (path === "/dashboard" && req.nextUrl.search.includes("redirect=%2Fdashboard")) {
-        // リダイレクトループを防止するため、クエリパラメータなしでログインページに遷移
-        return NextResponse.redirect(new URL("/auth/signin", req.url))
-      }
+    // // リダイレクトループを検出（/auth/signin?redirect=%2Fdashboard のようなパターン）
+    // const isRedirectLoop = req.nextUrl.searchParams.has("redirect") && req.nextUrl.pathname.includes("/auth/signin")
 
-      const redirectUrl = new URL("/auth/signin", req.url)
-      redirectUrl.searchParams.set("redirect", path)
-      return NextResponse.redirect(redirectUrl)
+    // ダッシュボード関連のパスかどうかを確認
+    const isDashboardPath =
+      path.startsWith("/dashboard") ||
+      path.startsWith("/profile") ||
+      path.startsWith("/applications") ||
+      path.startsWith("/jobs") ||
+      path.startsWith("/messages") ||
+      path.startsWith("/offers") ||
+      path.startsWith("/chat")
+
+    // 企業関連のパスかどうかを確認
+    const isCompanyPath =
+      path.startsWith("/company") && !path.startsWith("/company/contact") && !path.startsWith("/company/pricing")
+
+    // // リダイレクトループが検出された場合、直接ダッシュボードに遷移
+    // if (isRedirectLoop && session) {
+    //   return NextResponse.redirect(new URL("/dashboard", req.url))
+    // }
+
+    // 認証が必要なパスへのアクセスで、セッションがない場合
+    if ((isDashboardPath || isCompanyPath) && !session) {
+      // リダイレクト先のパスをエンコード
+      const redirectPath = encodeURIComponent(path)
+      return NextResponse.redirect(new URL(`/auth/signin?redirect=${redirectPath}`, req.url))
     }
 
-    // すでにログイン済みの場合、認証ページへのアクセスをリダイレクト
-    if (session && isAuthRoute && path !== "/auth/signout") {
-      console.log("ミドルウェア: 認証済みユーザーが認証ページにアクセス:", path)
-
-      // ユーザーロールを取得（最小限のクエリ）
-      const { data: userRole } = await supabase
-        .from("user_roles")
-        .select("role, is_approved")
-        .eq("id", session.user.id)
-        .single()
-
-      console.log("ミドルウェア: ユーザーロール:", userRole)
-
-      // リダイレクトループを防止するためのチェック
-      const hasRedirectParam = req.nextUrl.searchParams.has("redirect")
-      const redirectParam = req.nextUrl.searchParams.get("redirect")
-
-      // リダイレクトパラメータが存在し、それが/auth/signinを含む場合はループを防止
-      if (hasRedirectParam && redirectParam && redirectParam.includes("/auth/signin")) {
-        // ユーザーロールに基づいてリダイレクト
-        if (userRole?.role === "company") {
-          if (userRole.is_approved === false) {
-            return NextResponse.redirect(new URL("/company/pending", req.url))
-          }
-          return NextResponse.redirect(new URL("/company/dashboard", req.url))
-        }
-        return NextResponse.redirect(new URL("/dashboard", req.url))
-      }
-
-      // 通常のリダイレクト処理
-      // ユーザーロールに基づいてリダイレクト
-      if (userRole?.role === "company") {
-        if (userRole.is_approved === false) {
-          return NextResponse.redirect(new URL("/company/pending", req.url))
-        }
-        return NextResponse.redirect(new URL("/company/dashboard", req.url))
-      }
-
-      return NextResponse.redirect(new URL("/dashboard", req.url))
-    }
+    return res
   } catch (error) {
-    console.error("ミドルウェアエラー:", error)
+    console.error("ミドルウェアで予期せぬエラー:", error)
+    return NextResponse.next() // エラーが発生した場合でも、処理を中断せずに続行
   }
-
-  return res
 }
 
-// 認証チェックを適用するパス
 export const config = {
-  matcher: ["/profile/:path*", "/company/:path*", "/offers/:path*", "/chat/:path*", "/auth/:path*", "/dashboard"],
+  matcher: [
+    "/dashboard/:path*",
+    "/profile/:path*",
+    "/applications/:path*",
+    "/jobs/:path*",
+    "/messages/:path*",
+    "/offers/:path*",
+    "/chat/:path*",
+    "/company/:path*",
+    "/auth/signin",
+  ],
 }

@@ -18,39 +18,24 @@ export interface Database {
           cover_letter: string | null
           created_at: string
           updated_at: string
-          motivation: string | null
-          self_pr: string | null
-          questions: string | null
-          interview_dates: number[] | null
-          resume_url: string | null
         }
         Insert: {
           id?: string
           student_id: string
-          job_id: number
+          job_id: string
           status?: string
           cover_letter?: string | null
           created_at?: string
           updated_at?: string
-          motivation?: string | null
-          self_pr?: string | null
-          questions?: string | null
-          interview_dates?: number[] | null
-          resume_url?: string | null
         }
         Update: {
           id?: string
           student_id?: string
-          job_id?: number
+          job_id?: string
           status?: string
           cover_letter?: string | null
           created_at?: string
           updated_at?: string
-          motivation?: string | null
-          self_pr?: string | null
-          questions?: string | null
-          interview_dates?: number[] | null
-          resume_url?: string | null
         }
         Relationships: [
           {
@@ -150,7 +135,7 @@ export interface Database {
         Row: {
           id: string
           student_id: string
-          company_id: string | null
+          company_user_id: string
           job_id: string | null
           created_at: string
           updated_at: string
@@ -158,7 +143,7 @@ export interface Database {
         Insert: {
           id?: string
           student_id: string
-          company_id?: string | null
+          company_user_id: string
           job_id?: string | null
           created_at?: string
           updated_at?: string
@@ -166,16 +151,16 @@ export interface Database {
         Update: {
           id?: string
           student_id?: string
-          company_id?: string | null
+          company_user_id?: string
           job_id?: string | null
           created_at?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "conversations_company_id_fkey"
-            columns: ["company_id"]
-            referencedRelation: "companies"
+            foreignKeyName: "conversations_company_user_id_fkey"
+            columns: ["company_user_id"]
+            referencedRelation: "company_users"
             referencedColumns: ["id"]
           },
           {
@@ -198,10 +183,10 @@ export interface Database {
           application_id: string
           student_id: string
           company_user_id: string
-          interview_date: string
-          start_time: string
-          end_time: string
-          interview_type: string
+          scheduled_at: string
+          duration_minutes: number | null
+          location: string | null
+          meeting_link: string | null
           notes: string | null
           status: string
           created_at: string
@@ -212,10 +197,10 @@ export interface Database {
           application_id: string
           student_id: string
           company_user_id: string
-          interview_date: string
-          start_time: string
-          end_time: string
-          interview_type: string
+          scheduled_at: string
+          duration_minutes?: number | null
+          location?: string | null
+          meeting_link?: string | null
           notes?: string | null
           status?: string
           created_at?: string
@@ -226,10 +211,10 @@ export interface Database {
           application_id?: string
           student_id?: string
           company_user_id?: string
-          interview_date?: string
-          start_time?: string
-          end_time?: string
-          interview_type?: string
+          scheduled_at?: string
+          duration_minutes?: number | null
+          location?: string | null
+          meeting_link?: string | null
           notes?: string | null
           status?: string
           created_at?: string
@@ -265,13 +250,11 @@ export interface Database {
           requirements: string | null
           location: string | null
           job_type: string | null
-          salary_range: Json | null
+          salary_range: string | null
           application_deadline: string | null
-          is_active: boolean
+          is_active: boolean | null
           created_at: string
           updated_at: string
-          created_by: string | null
-          updated_by: string | null
         }
         Insert: {
           id?: string
@@ -281,13 +264,11 @@ export interface Database {
           requirements?: string | null
           location?: string | null
           job_type?: string | null
-          salary_range?: Json | null
+          salary_range?: string | null
           application_deadline?: string | null
-          is_active?: boolean
+          is_active?: boolean | null
           created_at?: string
           updated_at?: string
-          created_by?: string | null
-          updated_by?: string | null
         }
         Update: {
           id?: string
@@ -297,13 +278,11 @@ export interface Database {
           requirements?: string | null
           location?: string | null
           job_type?: string | null
-          salary_range?: Json | null
+          salary_range?: string | null
           application_deadline?: string | null
-          is_active?: boolean
+          is_active?: boolean | null
           created_at?: string
           updated_at?: string
-          created_by?: string | null
-          updated_by?: string | null
         }
         Relationships: [
           {
@@ -321,12 +300,8 @@ export interface Database {
           sender_id: string
           receiver_id: string
           content: string
-          is_read: boolean
+          is_read: boolean | null
           created_at: string
-          sender_type: string
-          attachment_url: string | null
-          attachment_type: string | null
-          attachment_name: string | null
         }
         Insert: {
           id?: string
@@ -334,12 +309,8 @@ export interface Database {
           sender_id: string
           receiver_id: string
           content: string
-          is_read?: boolean
+          is_read?: boolean | null
           created_at?: string
-          sender_type: string
-          attachment_url?: string | null
-          attachment_type?: string | null
-          attachment_name?: string | null
         }
         Update: {
           id?: string
@@ -347,12 +318,8 @@ export interface Database {
           sender_id?: string
           receiver_id?: string
           content?: string
-          is_read?: boolean
+          is_read?: boolean | null
           created_at?: string
-          sender_type?: string
-          attachment_url?: string | null
-          attachment_type?: string | null
-          attachment_name?: string | null
         }
         Relationships: [
           {
@@ -418,7 +385,6 @@ export interface Database {
           major: string | null
           graduation_year: number | null
           skills: string[] | null
-          interests: string[] | null
           bio: string | null
           resume_url: string | null
           avatar_url: string | null
@@ -433,7 +399,6 @@ export interface Database {
           major?: string | null
           graduation_year?: number | null
           skills?: string[] | null
-          interests?: string[] | null
           bio?: string | null
           resume_url?: string | null
           avatar_url?: string | null
@@ -448,7 +413,6 @@ export interface Database {
           major?: string | null
           graduation_year?: number | null
           skills?: string[] | null
-          interests?: string[] | null
           bio?: string | null
           resume_url?: string | null
           avatar_url?: string | null
@@ -472,7 +436,6 @@ export interface Database {
           updated_at: string
           is_active: boolean | null
           is_approved: boolean | null
-          company_name: string | null
         }
         Insert: {
           id: string
@@ -481,7 +444,6 @@ export interface Database {
           updated_at?: string
           is_active?: boolean | null
           is_approved?: boolean | null
-          company_name?: string | null
         }
         Update: {
           id?: string
@@ -490,7 +452,6 @@ export interface Database {
           updated_at?: string
           is_active?: boolean | null
           is_approved?: boolean | null
-          company_name?: string | null
         }
         Relationships: [
           {
@@ -506,10 +467,7 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      create_applications_table: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      [_ in never]: never
     }
     Enums: {
       [_ in never]: never

@@ -2,275 +2,189 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/client"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2 } from "lucide-react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { Database } from "@/lib/database.types"
 
-interface AuthFormProps {
-  type: "signin" | "signup"
-  userType?: "student" | "company"
-  redirectUrl?: string
-  error?: string | null
-}
+export default function AuthForm({ type }: { type: "signin" | "signup" }) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const supabase = createClientComponentClient<Database>()
 
-export function AuthForm({
-  type,
-  userType = "student",
-  redirectUrl = "/dashboard",
-  error: initialError = null,
-}: AuthFormProps) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [fullName, setFullName] = useState("")
-  const [companyName, setCompanyName] = useState("")
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(initialError)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
 
-  const supabase = createClient()
+  // リダイレクト先を取得
+  const redirect = searchParams.get("redirect")
+
+  // リダイレクト先が /auth/signin を含む場合は、リダイレクトループを防ぐためにダッシュボードに遷移
+  const redirectPath =
+    redirect && redirect.includes("/auth/signin")
+      ? "/dashboard"
+      : redirect
+        ? decodeURIComponent(redirect)
+        : "/dashboard"
+
+  useEffect(() => {
+    // エラーメッセージをクリア
+    setError(null)
+    setMessage(null)
+  }, [type])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    setSuccessMessage(null)
+    setMessage(null)
 
     try {
       if (type === "signin") {
-        console.log("ログイン処理を開始...")
-
-        // ログイン処理
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         })
 
-        if (signInError) {
-          console.error("ログインエラー:", signInError.message)
-          setError(`ログインエラー: ${signInError.message}`)
-          setLoading(false)
-          return
-        }
+        if (error) throw error
 
-        // セッションを確認（←これが重要！）
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-        if (sessionError || !sessionData.session) {
-          console.error("セッション取得エラー:", sessionError?.message)
-          setError("ログイン後のセッション取得に失敗しました。もう一度お試しください。")
-          setLoading(false)
-          return
-        }
-
-        console.log("ログイン成功、ユーザー情報取得開始")
-
-        // ユーザー情報取得
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser()
-
-        if (userError || !user) {
-          console.error("ユーザー情報の取得に失敗:", userError?.message)
-          setError("ログイン後にユーザー情報の取得に失敗しました")
-          setLoading(false)
-          return
-        }
-
-        // ユーザーロールの取得
-        const { data: userRole, error: roleFetchError } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("id", user.id)
-          .single()
-
-        if (roleFetchError || !userRole) {
-          console.error("ユーザーロール取得エラー:", roleFetchError?.message)
-          setError("ユーザーロールの取得に失敗しました")
-          setLoading(false)
-          return
-        }
-
-        console.log("ユーザーロール:", userRole.role)
-
+        // ログイン成功後、リダイレクト
         // ロールに応じてリダイレクト
-        if (userRole.role === "company") {
-          window.location.href = "/company/dashboard"
+        // if (userRole.role === "company") {
+        //   window.location.href = "/company/dashboard"
+        // } else {
+        // redirectUrlが/auth/signinを含む場合は、単純に/dashboardにリダイレクト
+        if (redirect && redirect.includes("/auth/signin")) {
+          window.location.href = "/dashboard"
         } else {
-          // redirectUrlが/auth/signinを含む場合は、単純に/dashboardにリダイレクト
-          if (redirectUrl && redirectUrl.includes("/auth/signin")) {
-            window.location.href = "/dashboard"
-          } else {
-            window.location.href = redirectUrl || "/dashboard"
-          }
+          window.location.href = redirect || "/dashboard"
         }
-
-        return
+        // }
+        router.refresh()
       } else {
-        // === サインアップ処理 ===
-        console.log("サインアップ処理を開始...", userType)
-
-        const { data: userData, error } = await supabase.auth.signUp({
+        const { error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: {
-              full_name: fullName,
-              company_name: userType === "company" ? companyName : null,
-              user_type: userType,
-            },
-            emailRedirectTo: `${window.location.origin}/auth/callback?userType=${userType}`,
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
           },
         })
 
-        if (error) {
-          console.error("登録エラー:", error.message)
-          setError(`登録エラー: ${error.message}`)
-          setLoading(false)
-          return
-        }
+        if (error) throw error
 
-        console.log("サインアップ成功", userData)
-
-        if (userData.user) {
-          const { error: roleError } = await supabase.from("user_roles").insert([
-            {
-              id: userData.user.id,
-              role: userType,
-              is_approved: userType === "student" ? true : false,
-            },
-          ])
-
-          if (roleError) {
-            console.error("ロール設定エラー:", roleError.message)
-          }
-        }
-
-        if (process.env.NODE_ENV === "development") {
-          const { error: signInError } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-          })
-
-          if (!signInError) {
-            if (userType === "company") {
-              window.location.href = "/company/dashboard"
-            } else {
-              window.location.href = redirectUrl
-            }
-            return
-          }
-        }
-
-        setSuccessMessage("登録が完了しました。確認メールを送信しましたので、メールボックスを確認してください。")
-        setEmail("")
-        setPassword("")
-        setFullName("")
-        setCompanyName("")
+        setMessage("アカウント登録メールを送信しました。メールを確認してください。")
       }
-    } catch (err) {
-      console.error("認証エラー:", err)
-      setError("予期せぬエラーが発生しました。もう一度お試しください。")
+    } catch (error: any) {
+      console.error("Authentication error:", error)
+      setError(error.message || "Authentication failed")
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="w-full">
+    <div className="flex flex-col items-center justify-center w-full max-w-md mx-auto mt-8">
+      <h1 className="text-2xl font-bold mb-6">{type === "signin" ? "ログイン" : "新規登録"}</h1>
+      <p className="text-center mb-6">
+        {type === "signin"
+          ? "アカウントにログインして、就職活動を始めましょう"
+          : "新しいアカウントを作成して、就職活動を始めましょう"}
+      </p>
+
       {error && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 w-full">
+          {error}
+        </div>
       )}
 
-      {successMessage && (
-        <Alert className="mb-4 border-green-500 bg-green-50">
-          <AlertDescription className="text-green-800">{successMessage}</AlertDescription>
-        </Alert>
+      {message && (
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4 w-full">
+          {message}
+        </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {type === "signup" && (
-          <>
-            <div className="space-y-2">
-              <Label htmlFor="fullName">氏名</Label>
-              <Input
-                id="fullName"
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-                placeholder="山田 太郎"
-              />
-            </div>
-
-            {userType === "company" && (
-              <div className="space-y-2">
-                <Label htmlFor="companyName">企業名</Label>
-                <Input
-                  id="companyName"
-                  type="text"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  required={userType === "company"}
-                  placeholder="株式会社〇〇"
-                />
-              </div>
-            )}
-          </>
-        )}
-
-        <div className="space-y-2">
-          <Label htmlFor="email">メールアドレス</Label>
-          <Input
+      <form onSubmit={handleSubmit} className="w-full">
+        <div className="mb-4">
+          <label htmlFor="email" className="block text-sm font-medium mb-1">
+            メールアドレス
+          </label>
+          <input
             id="email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            className="w-full px-3 py-2 border rounded-md"
             placeholder="your@email.com"
           />
         </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="password">パスワード</Label>
+        <div className="mb-6">
+          <div className="flex justify-between items-center mb-1">
+            <label htmlFor="password" className="block text-sm font-medium">
+              パスワード
+            </label>
             {type === "signin" && (
-              <Link href="/auth/reset-password" className="text-xs text-red-600 hover:underline">
+              <Link href="/auth/reset-password" className="text-sm text-red-600 hover:underline">
                 パスワードをお忘れですか？
               </Link>
             )}
           </div>
-          <Input
+          <input
             id="password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            className="w-full px-3 py-2 border rounded-md"
             placeholder="********"
-            minLength={8}
           />
         </div>
 
-        <Button type="submit" className="w-full bg-red-600 hover:bg-red-700" disabled={loading}>
-          {loading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {type === "signin" ? "ログイン中..." : "登録中..."}
-            </>
-          ) : type === "signin" ? (
-            "ログイン"
-          ) : (
-            "登録する"
-          )}
-        </Button>
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-red-600 text-white py-2 rounded-md hover:bg-red-700 transition duration-200"
+        >
+          {loading ? "処理中..." : type === "signin" ? "ログイン" : "新規登録"}
+        </button>
       </form>
+
+      <div className="mt-6 text-center">
+        {type === "signin" ? (
+          <p>
+            アカウントをお持ちでない方は{" "}
+            <Link href="/auth/signup" className="text-red-600 hover:underline">
+              新規登録
+            </Link>
+          </p>
+        ) : (
+          <p>
+            すでにアカウントをお持ちの方は{" "}
+            <Link href="/auth/signin" className="text-red-600 hover:underline">
+              ログイン
+            </Link>
+          </p>
+        )}
+      </div>
+
+      <div className="mt-4">
+        <Link href="/" className="text-sm text-gray-600 hover:underline flex items-center">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4 mr-1"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          ホームに戻る
+        </Link>
+      </div>
     </div>
   )
 }
