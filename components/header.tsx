@@ -1,10 +1,10 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
 import Image from "next/image"
-import { Bell, Menu, X, Loader2 } from "lucide-react"
+import { Bell, Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SignoutButton } from "@/components/auth/signout-button"
 import { createClient } from "@/lib/supabase/client"
@@ -12,32 +12,21 @@ import { MobileNavigation } from "./mobile-navigation"
 
 export function Header() {
   const pathname = usePathname()
-  const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false) // 初期値をfalseに変更
   const [profile, setProfile] = useState<any>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
 
   useEffect(() => {
-    // 初期ローディング状態を短くするため、すぐにローディングを解除するタイマーを設定
-    const initialLoadingTimer = setTimeout(() => {
-      if (loading) {
-        console.log("初期ローディング解除")
-        setLoading(false)
-      }
-    }, 1000)
-
     const supabase = createClient()
 
     const checkSession = async () => {
       try {
-        console.log("セッション確認開始")
         const {
           data: { session },
         } = await supabase.auth.getSession()
 
-        console.log("セッション確認結果:", session?.user?.id ? "ログイン中" : "未ログイン")
         setUser(session?.user || null)
 
         if (session?.user) {
@@ -51,21 +40,16 @@ export function Header() {
             if (roleError) {
               console.error("ロール取得エラー:", roleError)
             } else {
-              console.log("ユーザーロール:", roleData?.role)
               setUserRole(roleData?.role || null)
 
               if (roleData?.role === "student") {
-                const { data: profileData, error: profileError } = await supabase
+                const { data: profileData } = await supabase
                   .from("student_profiles")
                   .select("*")
                   .eq("id", session.user.id)
                   .single()
 
-                if (profileError) {
-                  console.error("プロフィール取得エラー:", profileError)
-                } else {
-                  setProfile(profileData)
-                }
+                setProfile(profileData)
               } else if (roleData?.role === "company") {
                 setProfile({
                   company_name: session.user.user_metadata?.company_name || "企業名未設定",
@@ -84,39 +68,29 @@ export function Header() {
         setUser(null)
         setUserRole(null)
         setProfile(null)
-      } finally {
-        setLoading(false)
       }
-
-      // セッション確認が5秒以上かかる場合はローディング状態を解除
-      const timeoutId = setTimeout(() => {
-        if (loading) {
-          console.log("セッション確認タイムアウト")
-          setLoading(false)
-        }
-      }, 5000)
-
-      return () => clearTimeout(timeoutId)
     }
 
     checkSession()
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("認証状態変更:", event, session?.user?.id)
-
-      // 認証状態が変わったら再度セッション確認
+    const { data: authListener } = supabase.auth.onAuthStateChange(async () => {
       checkSession()
     })
 
     return () => {
       authListener.subscription.unsubscribe()
-      clearTimeout(initialLoadingTimer)
     }
   }, [])
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen)
   const isActive = (path: string) => pathname === path || pathname?.startsWith(path + "/")
   const getDashboardLink = () => (userRole === "company" ? "/company/dashboard" : "/dashboard")
+
+  // 学生と企業で適切なリンク先を返す関数
+  const getProfileLink = () => {
+    if (!user) return "/auth/signin"
+    return userRole === "company" ? "/company/profile" : "/profile"
+  }
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-white shadow-sm transition-all">
@@ -186,12 +160,7 @@ export function Header() {
         </div>
 
         <div className="flex items-center space-x-4">
-          {loading ? (
-            // ローディング中は何も表示しない、またはより控えめなローダーのみ表示
-            <div className="hidden md:flex items-center">
-              <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-            </div>
-          ) : user ? (
+          {user ? (
             // ログイン済みの場合
             <>
               <Link href="/notifications" className="relative text-gray-700 hover:text-red-600 transition-colors">
@@ -208,7 +177,7 @@ export function Header() {
                     : user.user_metadata?.full_name || "ユーザー"}
                 </span>
                 <Link
-                  href={userRole === "company" ? "/company/profile" : "/profile"}
+                  href={getProfileLink()}
                   className="relative h-8 w-8 overflow-hidden rounded-full bg-gray-200 ring-2 ring-white hover:ring-red-100 transition-all"
                   aria-label="プロフィールを表示"
                 >
