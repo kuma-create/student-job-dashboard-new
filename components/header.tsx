@@ -37,33 +37,25 @@ export function Header() {
               .eq("id", session.user.id)
               .single()
 
-            if (roleError) {
-              console.error("ユーザーロール取得エラー:", roleError)
-              setUserRole(null)
-            } else {
+            if (!roleError) {
               setUserRole(roleData?.role || null)
-              console.log("User role:", roleData?.role)
 
               if (roleData?.role === "student") {
-                const { data: profileData, error: profileError } = await supabase
+                const { data: profileData } = await supabase
                   .from("student_profiles")
                   .select("*")
                   .eq("id", session.user.id)
                   .single()
 
-                if (profileError) {
-                  console.error("プロフィール取得エラー:", profileError)
-                } else {
-                  setProfile(profileData)
-                }
+                setProfile(profileData)
               } else if (roleData?.role === "company") {
                 setProfile({
                   company_name: session.user.user_metadata?.company_name || "企業名未設定",
                 })
               }
             }
-          } catch (profileError) {
-            console.error("プロフィール取得エラー:", profileError)
+          } catch (error) {
+            console.error("プロフィール取得エラー:", error)
           }
         }
       } catch (error) {
@@ -102,17 +94,13 @@ export function Header() {
           setUserRole(roleData?.role || null)
 
           if (roleData?.role === "student") {
-            const { data: profileData, error: profileError } = await supabase
+            const { data: profileData } = await supabase
               .from("student_profiles")
               .select("*")
               .eq("id", session.user.id)
               .single()
 
-            if (profileError) {
-              console.error("プロフィール取得エラー:", profileError)
-            } else {
-              setProfile(profileData)
-            }
+            setProfile(profileData)
           } else if (roleData?.role === "company") {
             setProfile({
               company_name: session.user.user_metadata?.company_name || "企業名未設定",
@@ -139,15 +127,17 @@ export function Header() {
   const isActive = (path: string) =>
     pathname === path || pathname?.startsWith(path + "/")
 
-  useEffect(() => {
-    console.log("Current auth state:", { user: user?.id, userRole, loading })
-  }, [user, userRole, loading])
-
   const getDashboardLink = () =>
     userRole === "company" ? "/company/dashboard" : "/dashboard"
 
-  // ✅ チラつき防止：loading中は何も描画しない
-  if (loading) return null
+  // ✅ チラつき・消失防止：仮のヘッダー表示（高さを保つ）
+  if (loading) {
+    return (
+      <header className="sticky top-0 z-40 w-full border-b bg-white h-16">
+        {/* 認証確認中... */}
+      </header>
+    )
+  }
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-white">
@@ -193,9 +183,7 @@ export function Header() {
                   <Link
                     href={getDashboardLink()}
                     className={`text-sm font-medium transition-colors hover:text-red-600 ${
-                      isActive(userRole === "company" ? "/company/dashboard" : "/dashboard")
-                        ? "text-red-600"
-                        : "text-gray-700"
+                      isActive(getDashboardLink()) ? "text-red-600" : "text-gray-700"
                     }`}
                   >
                     {userRole === "company" ? "企業ダッシュボード" : "マイページ"}
