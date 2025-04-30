@@ -1,13 +1,16 @@
 "use client"
 
+import { useSearchParams } from "next/navigation"
 import AuthForm from "./auth-form"
 
-interface Props {
-  type?: "signin" | "signup"
-  redirectUrl?: string
-  error?: string | null
+interface AuthFormWrapperProps {
+  mode: "signin" | "signup"
 }
 
-export default function AuthFormWrapper(props: Props) {
-  return <AuthForm {...props} />
+export default function AuthFormWrapper({ mode }: AuthFormWrapperProps) {
+  const searchParams = useSearchParams()
+  const error = searchParams.get("error")
+  const message = searchParams.get("message")
+
+  return <AuthForm mode={mode} error={error} message={message} />
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { InterviewSchedule } from "@/types/interview"
 import { useToast } from "@/hooks/use-toast"
@@ -39,9 +39,8 @@ export function useInterviewSchedules(applicationId: number) {
       const confirmed = data.find((schedule) => schedule.status === "confirmed") || null
       const pending = data.filter((schedule) => schedule.status === "pending")
 
-      // 型アサーションを使用して型を明示的に指定
-      setConfirmedSchedule(confirmed as InterviewSchedule | null)
-      setPendingSchedules(pending as InterviewSchedule[])
+      setConfirmedSchedule(confirmed)
+      setPendingSchedules(pending)
     } catch (err) {
       console.error("面接スケジュールの取得に失敗しました:", err)
       setError("面接スケジュールの取得に失敗しました。再度お試しください。")
@@ -50,9 +49,13 @@ export function useInterviewSchedules(applicationId: number) {
     }
   }
 
+  // 初回レンダリング時にデータを取得
+  useEffect(() => {
+    fetchInterviewSchedules()
+  }, [applicationId])
+
   // 面接日程を確定する
   const confirmSchedule = async (scheduleId: string) => {
-    // 文字列型に変更
     try {
       setIsConfirming(true)
 
