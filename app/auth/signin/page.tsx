@@ -3,10 +3,7 @@ import { ArrowLeft } from "lucide-react"
 import { Suspense } from "react"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import dynamic from "next/dynamic"
-
-// クライアント専用コンポーネントとして dynamic import（SSR無効化）
-const AuthFormWrapper = dynamic(() => import("@/components/auth/auth-form-wrapper"), { ssr: false })
+import AuthFormWrapper from "@/components/auth/auth-form-wrapper" // ✅ 通常 import に修正
 
 export const viewport = {
   width: "device-width",
