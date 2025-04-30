@@ -30,32 +30,28 @@ export function Header() {
         setUser(session?.user || null)
 
         if (session?.user) {
-          try {
-            const { data: roleData, error: roleError } = await supabase
-              .from("user_roles")
-              .select("role")
-              .eq("id", session.user.id)
-              .single()
+          const { data: roleData, error: roleError } = await supabase
+            .from("user_roles")
+            .select("role")
+            .eq("id", session.user.id)
+            .single()
 
-            if (!roleError) {
-              setUserRole(roleData?.role || null)
+          if (!roleError) {
+            setUserRole(roleData?.role || null)
 
-              if (roleData?.role === "student") {
-                const { data: profileData } = await supabase
-                  .from("student_profiles")
-                  .select("*")
-                  .eq("id", session.user.id)
-                  .single()
+            if (roleData?.role === "student") {
+              const { data: profileData } = await supabase
+                .from("student_profiles")
+                .select("*")
+                .eq("id", session.user.id)
+                .single()
 
-                setProfile(profileData)
-              } else if (roleData?.role === "company") {
-                setProfile({
-                  company_name: session.user.user_metadata?.company_name || "企業名未設定",
-                })
-              }
+              setProfile(profileData)
+            } else if (roleData?.role === "company") {
+              setProfile({
+                company_name: session.user.user_metadata?.company_name || "企業名未設定",
+              })
             }
-          } catch (error) {
-            console.error("プロフィール取得エラー:", error)
           }
         }
       } catch (error) {
@@ -71,10 +67,6 @@ export function Header() {
       console.log("Auth state changed:", event, session?.user?.id)
 
       setUser(session?.user || null)
-
-      if (event === "SIGNED_IN") {
-        window.location.reload()
-      }
 
       if (session?.user) {
         try {
@@ -130,12 +122,10 @@ export function Header() {
   const getDashboardLink = () =>
     userRole === "company" ? "/company/dashboard" : "/dashboard"
 
-  // ✅ チラつき・消失防止：仮のヘッダー表示（高さを保つ）
+  // ✅ 認証状態確認中の仮ヘッダー表示
   if (loading) {
     return (
-      <header className="sticky top-0 z-40 w-full border-b bg-white h-16">
-        {/* 認証確認中... */}
-      </header>
+      <header className="sticky top-0 z-40 w-full border-b bg-white h-16" />
     )
   }
 
