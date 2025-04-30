@@ -20,6 +20,14 @@ export function Header() {
   const [userRole, setUserRole] = useState<string | null>(null)
 
   useEffect(() => {
+    // 初期ローディング状態を短くするため、すぐにローディングを解除するタイマーを設定
+    const initialLoadingTimer = setTimeout(() => {
+      if (loading) {
+        console.log("初期ローディング解除")
+        setLoading(false)
+      }
+    }, 1000)
+
     const supabase = createClient()
 
     const checkSession = async () => {
@@ -79,6 +87,16 @@ export function Header() {
       } finally {
         setLoading(false)
       }
+
+      // セッション確認が5秒以上かかる場合はローディング状態を解除
+      const timeoutId = setTimeout(() => {
+        if (loading) {
+          console.log("セッション確認タイムアウト")
+          setLoading(false)
+        }
+      }, 5000)
+
+      return () => clearTimeout(timeoutId)
     }
 
     checkSession()
@@ -92,6 +110,7 @@ export function Header() {
 
     return () => {
       authListener.subscription.unsubscribe()
+      clearTimeout(initialLoadingTimer)
     }
   }, [])
 
@@ -168,10 +187,9 @@ export function Header() {
 
         <div className="flex items-center space-x-4">
           {loading ? (
-            // ローディング中の表示
-            <div className="hidden md:flex items-center space-x-2">
+            // ローディング中は何も表示しない、またはより控えめなローダーのみ表示
+            <div className="hidden md:flex items-center">
               <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-              <span className="text-sm text-gray-500">読み込み中...</span>
             </div>
           ) : user ? (
             // ログイン済みの場合
