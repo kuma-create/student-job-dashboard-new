@@ -7,7 +7,7 @@ export async function middleware(req: NextRequest) {
   const supabase = createMiddlewareClient({ req, res })
 
   try {
-    // セッションのみ確認（最小限のチェック）
+    // セッション取得
     const {
       data: { session },
       error: sessionError,
@@ -17,28 +17,26 @@ export async function middleware(req: NextRequest) {
       console.error("ミドルウェア: セッション取得エラー:", sessionError)
     }
 
-    // 現在のパス
+    // デバッグログ
+    console.log("middleware セッション:", session?.user?.id || "なし")
+
     const path = req.nextUrl.pathname
 
-    // リダイレクトループを検出
     const isRedirectLoop =
       req.nextUrl.searchParams.has("redirect") &&
       req.nextUrl.searchParams.get("redirect") === "/dashboard" &&
       path === "/auth/signin"
 
-    // リダイレクトループが検出され、かつセッションが存在する場合は直接ダッシュボードへ
     if (isRedirectLoop && session) {
       console.log("ミドルウェア: リダイレクトループを検出、ダッシュボードへ直接遷移")
       return NextResponse.redirect(new URL("/dashboard", req.url))
     }
 
-    // ログイン済みユーザーがログインページにアクセスした場合はダッシュボードへリダイレクト
     if (path === "/auth/signin" && session) {
       console.log("ミドルウェア: ログイン済みユーザーがログインページにアクセス、ダッシュボードへリダイレクト")
       return NextResponse.redirect(new URL("/dashboard", req.url))
     }
 
-    // ダッシュボード関連のパスかどうかを確認
     const isDashboardPath =
       path.startsWith("/dashboard") ||
       path.startsWith("/profile") ||
@@ -48,13 +46,12 @@ export async function middleware(req: NextRequest) {
       path.startsWith("/offers") ||
       path.startsWith("/chat")
 
-    // 企業関連のパスかどうかを確認
     const isCompanyPath =
-      path.startsWith("/company") && !path.startsWith("/company/contact") && !path.startsWith("/company/pricing")
+      path.startsWith("/company") &&
+      !path.startsWith("/company/contact") &&
+      !path.startsWith("/company/pricing")
 
-    // 認証が必要なパスへのアクセスで、セッションがない場合
     if ((isDashboardPath || isCompanyPath) && !session) {
-      // リダイレクト先のパスをエンコード
       const redirectPath = encodeURIComponent(path)
       return NextResponse.redirect(new URL(`/auth/signin?redirect=${redirectPath}`, req.url))
     }
@@ -62,7 +59,7 @@ export async function middleware(req: NextRequest) {
     return res
   } catch (error) {
     console.error("ミドルウェアで予期せぬエラー:", error)
-    return NextResponse.next() // エラーが発生した場合でも、処理を中断せずに続行
+    return res
   }
 }
 
@@ -76,6 +73,6 @@ export const config = {
     "/offers/:path*",
     "/chat/:path*",
     "/company/:path*",
-    "/auth/signin",
+    // ❌ "/auth/signin" は除外 → 無限ループ防止
   ],
 }
