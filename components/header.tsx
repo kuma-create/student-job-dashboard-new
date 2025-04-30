@@ -80,7 +80,6 @@ export function Header() {
 
       setUser(session?.user || null)
 
-      // ✅ ログイン成功時にリロードを追加（ここが唯一の追加点）
       if (event === "SIGNED_IN") {
         window.location.reload()
       }
@@ -146,6 +145,9 @@ export function Header() {
 
   const getDashboardLink = () =>
     userRole === "company" ? "/company/dashboard" : "/dashboard"
+
+  // ✅ チラつき防止：loading中は何も描画しない
+  if (loading) return null
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-white">
