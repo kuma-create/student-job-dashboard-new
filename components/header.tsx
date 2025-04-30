@@ -2,135 +2,57 @@
 
 import type React from "react"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useState, useEffect } from "react"
 import Image from "next/image"
-import { Bell, Menu, X, User, Briefcase, MessageSquare, FileText } from "lucide-react"
+import { Bell, Menu, X, User, Briefcase, MessageSquare, FileText, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { createClient } from "@/lib/supabase/client"
+import { useAuth } from "@/contexts/auth-context"
 import { MobileNavigation } from "./mobile-navigation"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
-// ファイルの先頭（importの後）に以下の型定義を追加してください
 type NavLink = {
   href: string
   label: string
-  icon?: React.ElementType // アイコンはオプショナル
+  icon?: React.ElementType
 }
 
 export function Header() {
   const pathname = usePathname()
+  const { user, userRole, profile, signOut, isLoading } = useAuth()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
-  const [profile, setProfile] = useState<any>(null)
-  const [userRole, setUserRole] = useState<string | null>(null)
   const [windowWidth, setWindowWidth] = useState<number>(typeof window !== "undefined" ? window.innerWidth : 0)
 
   // ウィンドウサイズの変更を監視
   useEffect(() => {
-    // クライアントサイドでのみ実行
     if (typeof window === "undefined") return
 
     const handleResize = () => {
       setWindowWidth(window.innerWidth)
-
-      // PCサイズの場合はメニューを閉じる
       if (window.innerWidth >= 768) {
         setIsMenuOpen(false)
       }
     }
 
-    // 初期値設定
     setWindowWidth(window.innerWidth)
-
-    // リサイズイベントリスナーを追加
     window.addEventListener("resize", handleResize)
 
-    // クリーンアップ
     return () => {
       window.removeEventListener("resize", handleResize)
     }
   }, [])
 
-  // モバイル表示かどうかを判定
   const isMobile = windowWidth < 768
-
-  useEffect(() => {
-    const supabase = createClient()
-
-    const checkSession = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-
-        setUser(session?.user || null)
-
-        if (session?.user) {
-          try {
-            const { data: roleData, error: roleError } = await supabase
-              .from("user_roles")
-              .select("role")
-              .eq("id", session.user.id)
-              .single()
-
-            if (roleError) {
-              console.error("ロール取得エラー:", roleError)
-            } else {
-              setUserRole(roleData?.role || null)
-
-              if (roleData?.role === "student") {
-                const { data: profileData } = await supabase
-                  .from("student_profiles")
-                  .select("*")
-                  .eq("id", session.user.id)
-                  .single()
-
-                setProfile(profileData)
-              } else if (roleData?.role === "company") {
-                setProfile({
-                  company_name: session.user.user_metadata?.company_name || "企業名未設定",
-                })
-              }
-            }
-          } catch (error) {
-            console.error("ユーザー情報取得エラー:", error)
-          }
-        } else {
-          setUserRole(null)
-          setProfile(null)
-        }
-      } catch (error) {
-        console.error("セッション確認エラー:", error)
-        setUser(null)
-        setUserRole(null)
-        setProfile(null)
-      }
-    }
-
-    checkSession()
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async () => {
-      checkSession()
-    })
-
-    return () => {
-      authListener.subscription.unsubscribe()
-    }
-  }, [])
-
-  const toggleMenu = () => setIsMenuOpen(!isMenuOpen)
   const isActive = (path: string) => pathname === path || pathname?.startsWith(path + "/")
-  const getDashboardLink = () => (userRole === "company" ? "/company/dashboard" : "/dashboard")
 
-  // 学生と企業で適切なリンク先を返す関数
-  const getProfileLink = () => {
-    if (!user) return "/auth/signin"
-    return userRole === "company" ? "/company/profile" : "/profile"
-  }
-
-  // 以下の行を修正してください
   // ログイン前のナビゲーションリンク
   const publicNavLinks: NavLink[] = [
     { href: "/jobs", label: "求人検索" },
@@ -161,6 +83,12 @@ export function Header() {
   }
 
   const navLinks = getNavLinks()
+
+  // プロフィールリンクを取得
+  const getProfileLink = () => {
+    if (!user) return "/auth/signin"
+    return userRole === "company" ? "/company/profile" : "/profile"
+  }
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-white shadow-sm transition-all">
@@ -209,7 +137,7 @@ export function Header() {
         </div>
 
         <div className="flex items-center space-x-4">
-          {user ? (
+          {!isLoading && user ? (
             // ログイン済みの場合
             <>
               <Link href="/notifications" className="relative text-gray-700 hover:text-red-600 transition-colors">
@@ -219,33 +147,50 @@ export function Header() {
                 </span>
                 <span className="sr-only">通知 3件</span>
               </Link>
-              <div className="hidden md:flex items-center">
-                <span className="mr-2 text-sm font-medium">
-                  {userRole === "company"
-                    ? profile?.company_name || "企業アカウント"
-                    : user.user_metadata?.full_name || "ユーザー"}
-                </span>
-                <Link
-                  href={getProfileLink()}
-                  className="relative h-8 w-8 overflow-hidden rounded-full bg-gray-200 ring-2 ring-white hover:ring-red-100 transition-all"
-                  aria-label="プロフィールを表示"
-                >
-                  <Image src="/mystical-forest-spirit.png" alt="" fill className="object-cover" />
-                </Link>
-              </div>
+
               <div className="hidden md:block">
-                <Button
-                  variant="ghost"
-                  className="text-sm font-medium text-gray-700 hover:text-red-600 transition-colors"
-                  onClick={() => {
-                    const supabase = createClient()
-                    supabase.auth.signOut().then(() => {
-                      window.location.href = "/"
-                    })
-                  }}
-                >
-                  ログアウト
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-8 w-8 rounded-full p-0">
+                      <div className="flex items-center">
+                        <span className="mr-2 text-sm font-medium">
+                          {userRole === "company"
+                            ? profile?.company_name || "企業アカウント"
+                            : `${profile?.first_name || ""} ${profile?.last_name || ""}`}
+                        </span>
+                        <div className="relative h-8 w-8 overflow-hidden rounded-full bg-gray-200 ring-2 ring-white hover:ring-red-100 transition-all">
+                          <Image
+                            src={profile?.avatar_url || "/mystical-forest-spirit.png"}
+                            alt=""
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                      </div>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>マイアカウント</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href={getProfileLink()}>
+                        <User className="mr-2 h-4 w-4" />
+                        <span>プロフィール</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/notifications">
+                        <Bell className="mr-2 h-4 w-4" />
+                        <span>通知</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={signOut}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>ログアウト</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </>
           ) : (
@@ -262,7 +207,7 @@ export function Header() {
 
           <button
             className="block md:hidden p-1 rounded-md hover:bg-gray-100 transition-colors"
-            onClick={toggleMenu}
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
             aria-expanded={isMenuOpen}
             aria-label="メニューを開く"
           >
@@ -272,10 +217,8 @@ export function Header() {
         </div>
       </div>
 
-      {/* モバイルナビゲーションはモバイル表示かつメニューが開いている場合のみ表示 */}
-      {isMenuOpen && isMobile && (
-        <MobileNavigation user={user} userRole={userRole} onClose={() => setIsMenuOpen(false)} />
-      )}
+      {/* モバイルナビゲーション */}
+      {isMenuOpen && isMobile && <MobileNavigation onClose={() => setIsMenuOpen(false)} />}
     </header>
   )
 }

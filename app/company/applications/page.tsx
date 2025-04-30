@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import CompanyApplicationsClient from "./company-applications-client"
+import type { Application } from "@/types/application"
 
 export default async function CompanyApplicationsPage() {
   const supabase = createClient()
@@ -15,60 +16,37 @@ export default async function CompanyApplicationsPage() {
   }
 
   // ユーザーロールの取得
-  const { data: userRole, error: roleError } = await supabase
-    .from("user_roles")
-    .select("role, is_approved")  // company_nameを削除
-    .eq("id", session.user.id)
-    .single()
+  const { data: userRole } = await supabase.from("user_roles").select("*").eq("id", session.user.id).single()
 
-  // エラーハンドリングを追加
-  if (roleError) {
-    console.error("ユーザーロール取得エラー:", roleError)
-    return redirect("/dashboard")
-  }
-
-  // 企業アカウントでない場合はリダイレクト
-  if (userRole?.role !== "company") {
+  if (!userRole || userRole.role !== "company") {
     redirect("/dashboard")
   }
 
-  // 企業アカウントで未承認の場合は承認待ちページにリダイレクト
-  if (userRole?.is_approved === false) {
+  // 企業ユーザー情報の取得
+  const { data: companyUser } = await supabase.from("company_users").select("*").eq("user_id", session.user.id).single()
+
+  if (!companyUser) {
     redirect("/company/pending")
   }
 
-  // 企業IDの取得
-  const { data: companyUser, error: companyError } = await supabase
-    .from("company_users")
-    .select("company_id")
-    .eq("user_id", session.user.id)
-    .single()
-
-  // エラーハンドリングを追加
-  if (companyError) {
-    console.error("企業ユーザー取得エラー:", companyError)
-    return redirect("/dashboard")
-  }
-
-  if (!companyUser) {
-    // 企業ユーザーが見つからない場合はダッシュボードにリダイレクト
-    redirect("/company/dashboard")
-  }
-
   // 企業の求人に対する応募を取得
-  const { data: applications, error: applicationsError } = await supabase
+  const { data: applications } = await supabase
     .from("applications")
     .select(`
-      id,
-      status,
-      created_at,
-      job_postings (
+      *,
+      jobs:job_id (
         id,
         title,
         location,
-        job_type
+        job_type,
+        company_id,
+        companies:company_id (
+          id,
+          name,
+          logo_url
+        )
       ),
-      student_profiles (
+      students:student_id (
         id,
         first_name,
         last_name,
@@ -78,15 +56,8 @@ export default async function CompanyApplicationsPage() {
         avatar_url
       )
     `)
-    .eq("job_postings.company_id", companyUser.company_id)
+    .eq("jobs.company_id", companyUser.company_id)
     .order("created_at", { ascending: false })
 
-  // エラーハンドリングを追加
-  if (applicationsError) {
-    console.error("応募情報取得エラー:", applicationsError)
-    // エラーが発生しても空の配列を渡して表示だけはする
-    return <CompanyApplicationsClient applications={[]} />
-  }
-
-  return <CompanyApplicationsClient applications={applications || []} />
+  return <CompanyApplicationsClient applications={(applications as Application[]) || []} />
 }

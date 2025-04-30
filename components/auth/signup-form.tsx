@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -12,12 +12,10 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, Loader2 } from "lucide-react"
 
-export default function SignUpPage() {
+export function SignUpForm() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const redirectTo = searchParams.get("redirect") || "/"
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -26,11 +24,13 @@ export default function SignUpPage() {
   const [companyName, setCompanyName] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
+    setSuccess(false)
 
     try {
       const supabase = createClient()
@@ -45,31 +45,42 @@ export default function SignUpPage() {
         password,
         options: {
           data: metadata,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       })
 
       if (signUpError) throw signUpError
 
       if (data.user) {
+        console.log("ユーザー作成成功:", data.user.id)
+
         // ユーザーロールを設定
         const { error: roleError } = await supabase.from("user_roles").insert([{ id: data.user.id, role: userType }])
 
-        if (roleError) throw roleError
+        if (roleError) {
+          console.error("ロール設定エラー:", roleError)
+          throw roleError
+        }
 
         // 学生プロフィールを作成（学生の場合）
         if (userType === "student") {
           const { error: profileError } = await supabase
             .from("student_profiles")
-            .insert([{ id: data.user.id, full_name: fullName }])
+            .insert([{ id: data.user.id, first_name: fullName }])
 
-          if (profileError) throw profileError
+          if (profileError) {
+            console.error("プロフィール作成エラー:", profileError)
+            throw profileError
+          }
         }
 
-        // 登録成功メッセージを表示
-        alert("登録が完了しました。メールを確認してアカウントを有効化してください。")
+        // 登録成功状態を設定
+        setSuccess(true)
 
-        // ログインページにリダイレクト
-        router.push("/auth/signin")
+        // 3秒後にログインページにリダイレクト
+        setTimeout(() => {
+          router.push("/auth/signin")
+        }, 3000)
       }
     } catch (error: any) {
       console.error("サインアップエラー:", error)
@@ -80,19 +91,47 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="container mx-auto flex flex-col items-center justify-center py-12">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">新規アカウント登録</CardTitle>
-          <CardDescription className="text-center">必要情報を入力して、アカウントを作成してください</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+    <Card className="w-full max-w-md">
+      <CardHeader>
+        <CardTitle className="text-2xl font-bold text-center">新規アカウント登録</CardTitle>
+        <CardDescription className="text-center">必要情報を入力して、アカウントを作成してください</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {success ? (
+          <div className="text-center py-6 space-y-4">
+            <div className="flex justify-center">
+              <div className="rounded-full bg-green-100 p-3">
+                <svg
+                  className="h-6 w-6 text-green-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900">登録が完了しました</h3>
+            <p className="text-sm text-gray-500">
+              メールを確認してアカウントを有効化してください。
+              <br />
+              まもなくログインページに移動します...
+            </p>
+            <div className="mt-4">
+              <Button onClick={() => router.push("/auth/signin")} className="w-full bg-red-600 hover:bg-red-700">
+                ログインページへ
+              </Button>
+            </div>
+          </div>
+        ) : (
           <form onSubmit={handleSignUp} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="userType">アカウントタイプ</Label>
@@ -161,22 +200,31 @@ export default function SignUpPage() {
             </div>
 
             <Button type="submit" className="w-full bg-red-600 hover:bg-red-700" disabled={loading}>
-              {loading ? "登録中..." : "アカウント作成"}
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  登録中...
+                </>
+              ) : (
+                "アカウント作成"
+              )}
             </Button>
           </form>
-        </CardContent>
-        <CardFooter className="flex flex-col space-y-2">
-          <p className="text-sm text-center text-gray-500">
-            すでにアカウントをお持ちの方は{" "}
-            <Link href="/auth/signin" className="text-red-600 hover:underline">
-              ログイン
-            </Link>
-          </p>
-          <Link href="/" className="text-sm text-center text-gray-500 hover:underline">
-            ホームに戻る
+        )}
+      </CardContent>
+      <CardFooter className="flex flex-col space-y-2">
+        <p className="text-sm text-center text-gray-500">
+          すでにアカウントをお持ちの方は{" "}
+          <Link href="/auth/signin" className="text-red-600 hover:underline">
+            ログイン
           </Link>
-        </CardFooter>
-      </Card>
-    </div>
+        </p>
+        <Link href="/" className="text-sm text-center text-gray-500 hover:underline">
+          ホームに戻る
+        </Link>
+      </CardFooter>
+    </Card>
   )
 }
+
+export default SignUpForm
