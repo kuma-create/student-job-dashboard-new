@@ -1,116 +1,18 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { useState, useEffect } from "react"
+import { usePathname } from "next/navigation"
+import { useState } from "react"
 import Image from "next/image"
 import { Bell, Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { SignoutButton } from "@/components/auth/signout-button"
-import { createClient } from "@/lib/supabase/client"
 import { MobileNavigation } from "./mobile-navigation"
+import { useAuth } from "./auth-provider"
 
 export function Header() {
   const pathname = usePathname()
-  const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [profile, setProfile] = useState<any>(null)
-  const [userRole, setUserRole] = useState<string | null>(null)
-
-  // ユーザー情報を取得する関数
-  const fetchUserData = async () => {
-    try {
-      setLoading(true)
-      const supabase = createClient()
-
-      // セッション情報を取得
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession()
-
-      if (sessionError) {
-        console.error("セッション取得エラー:", sessionError)
-        setUser(null)
-        setUserRole(null)
-        setProfile(null)
-        return
-      }
-
-      // ユーザー状態を更新
-      setUser(session?.user || null)
-
-      if (session?.user) {
-        try {
-          // ユーザーロールを取得
-          const { data: roleData, error: roleError } = await supabase
-            .from("user_roles")
-            .select("role")
-            .eq("id", session.user.id)
-            .single()
-
-          if (roleError) {
-            console.error("ロール取得エラー:", roleError)
-          }
-
-          setUserRole(roleData?.role || null)
-          console.log("User role:", roleData?.role)
-
-          // プロフィール情報を取得
-          if (roleData?.role === "student") {
-            const { data: profileData, error: profileError } = await supabase
-              .from("student_profiles")
-              .select("*")
-              .eq("id", session.user.id)
-              .single()
-
-            if (profileError) {
-              console.error("プロフィール取得エラー:", profileError)
-            }
-
-            setProfile(profileData)
-          } else if (roleData?.role === "company") {
-            // 企業プロフィールがあれば取得
-            setProfile({
-              company_name: session.user.user_metadata?.company_name || "企業名未設定",
-            })
-          }
-        } catch (profileError) {
-          console.error("プロフィール取得エラー:", profileError)
-        }
-      } else {
-        setUserRole(null)
-        setProfile(null)
-      }
-    } catch (error) {
-      console.error("ユーザーデータ取得エラー:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    // 初期ユーザーデータ取得
-    fetchUserData()
-
-    // Supabaseクライアントを作成
-    const supabase = createClient()
-
-    // 認証状態変更リスナー
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth state changed:", event, session?.user?.id)
-
-      // 認証状態が変わったら再度ユーザーデータを取得
-      fetchUserData()
-    })
-
-    // クリーンアップ関数
-    return () => {
-      authListener.subscription.unsubscribe()
-    }
-  }, []) // 依存配列を空にして、マウント時のみ実行
+  const { user, userRole, profile, signOut } = useAuth()
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen)
@@ -119,11 +21,6 @@ export function Header() {
   const isActive = (path: string) => {
     return pathname === path || pathname?.startsWith(path + "/")
   }
-
-  // デバッグ用
-  useEffect(() => {
-    console.log("Current auth state:", { user: user?.id, userRole, loading })
-  }, [user, userRole, loading])
 
   // ダッシュボードへのリンク - ユーザーロールに基づいて変更
   const getDashboardLink = () => {
@@ -214,18 +111,13 @@ export function Header() {
                 </Link>
               </div>
               <div className="hidden md:block">
-                <SignoutButton
-                  onSignOutSuccess={() => {
-                    setUser(null)
-                    setUserRole(null)
-                    setProfile(null)
-                    router.push("/")
-                  }}
-                />
+                <Button variant="outline" size="sm" onClick={signOut} className="text-sm">
+                  ログアウト
+                </Button>
               </div>
             </>
           ) : (
-            // ユーザーがログインしていない場合（ローディング中も含む）
+            // ユーザーがログインしていない場合
             <div className="hidden space-x-2 md:flex">
               <Button asChild variant="outline">
                 <Link href="/auth/signin">ログイン</Link>

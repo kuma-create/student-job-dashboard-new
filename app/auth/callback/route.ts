@@ -63,6 +63,11 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // リダイレクト
-  return NextResponse.redirect(new URL(redirectTo, requestUrl.origin))
+  // キャッシュを防止するヘッダーを追加
+  const response = NextResponse.redirect(new URL(redirectTo, requestUrl.origin))
+  response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
+  response.headers.set("Pragma", "no-cache")
+  response.headers.set("Expires", "0")
+
+  return response
 }
