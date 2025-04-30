@@ -1,161 +1,68 @@
-"use client"
-
-import type React from "react"
-import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import type { Database } from "@/lib/database.types"
+import { ArrowLeft } from "lucide-react"
+import { Suspense } from "react"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
+import dynamic from "next/dynamic"
 
-interface AuthFormProps {
-  type?: "signin" | "signup"
-  redirectUrl?: string
-  error?: string | null
+// クライアント専用コンポーネントとして dynamic import（SSR無効化）
+const AuthFormWrapper = dynamic(() => import("@/components/auth/auth-form-wrapper"), { ssr: false })
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 }
 
-export function AuthForm({ type = "signin", redirectUrl, error: initialError }: AuthFormProps) {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const supabase = createClientComponentClient<Database>()
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined }
+}) {
+  const supabase = createClient()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
 
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(initialError || null)
-  const [message, setMessage] = useState<string | null>(null)
+  const redirectUrl = typeof searchParams.redirect === "string" ? searchParams.redirect : "/dashboard"
+  const error = typeof searchParams.error === "string" ? searchParams.error : null
 
-  const redirect = redirectUrl || searchParams.get("redirect")
-
-  const redirectPath =
-    redirect && redirect.includes("/auth/signin")
-      ? "/dashboard"
-      : redirect
-        ? decodeURIComponent(redirect)
-        : "/dashboard"
-
-  useEffect(() => {
-    setError(null)
-    setMessage(null)
-  }, [type])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-    setMessage(null)
-
-    try {
-      if (type === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        })
-
-        if (error) throw error
-
-        // ✅ router.push によるリダイレクトに修正
-        router.push(redirectPath)
-      } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
-        })
-
-        if (error) throw error
-
-        setMessage("アカウント登録メールを送信しました。メールを確認してください。")
-      }
-    } catch (error: any) {
-      console.error("Authentication error:", error)
-      setError(error.message || "Authentication failed")
-    } finally {
-      setLoading(false)
-    }
+  if (session) {
+    redirect(redirectUrl)
   }
 
   return (
-    <div className="flex flex-col items-center justify-center w-full max-w-md mx-auto">
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 w-full">
-          {error}
-        </div>
-      )}
-
-      {message && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4 w-full">
-          {message}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="w-full">
-        <div className="mb-4">
-          <label htmlFor="email" className="block text-sm font-medium mb-1">
-            メールアドレス
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="w-full px-3 py-2 border rounded-md"
-            placeholder="your@email.com"
-          />
-        </div>
-
-        <div className="mb-6">
-          <div className="flex justify-between items-center mb-1">
-            <label htmlFor="password" className="block text-sm font-medium">
-              パスワード
-            </label>
-            {type === "signin" && (
-              <Link href="/auth/reset-password" className="text-sm text-red-600 hover:underline">
-                パスワードをお忘れですか？
-              </Link>
-            )}
+    <div className="flex min-h-screen flex-col">
+      <div className="container flex flex-1 flex-col items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md space-y-6">
+          <div className="space-y-2 text-center">
+            <h1 className="text-3xl font-bold">ログイン</h1>
+            <p className="text-gray-500">アカウントにログインして、就職活動を始めましょう</p>
           </div>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="w-full px-3 py-2 border rounded-md"
-            placeholder="********"
-          />
-        </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-red-600 text-white py-2 rounded-md hover:bg-red-700 transition duration-200"
-        >
-          {loading ? "処理中..." : type === "signin" ? "ログイン" : "新規登録"}
-        </button>
-      </form>
+          <Suspense fallback={<div className="text-center py-4">読み込み中...</div>}>
+            <AuthFormWrapper type="signin" redirectUrl={redirectUrl} error={error} />
+          </Suspense>
 
-      <div className="mt-6 text-center">
-        {type === "signin" ? (
-          <p>
+          <div className="mt-4 text-center">
+            <Link href="/auth/reset-password" className="text-sm text-red-600 hover:underline">
+              パスワードをお忘れですか？
+            </Link>
+          </div>
+          <div className="text-center text-sm">
             アカウントをお持ちでない方は{" "}
-            <Link href="/auth/signup" className="text-red-600 hover:underline">
+            <Link href="/auth/signup?type=student" className="font-medium text-red-600 hover:underline">
               新規登録
             </Link>
-          </p>
-        ) : (
-          <p>
-            すでにアカウントをお持ちの方は{" "}
-            <Link href="/auth/signin" className="text-red-600 hover:underline">
-              ログイン
+          </div>
+          <div className="mt-4">
+            <Link href="/" className="inline-flex items-center text-sm text-gray-500 hover:text-red-600">
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              ホームに戻る
             </Link>
-          </p>
-        )}
+          </div>
+        </div>
       </div>
     </div>
   )
 }
-
-export default AuthForm
