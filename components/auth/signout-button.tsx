@@ -5,8 +5,11 @@ import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
 
-// SignOutButton を SignoutButton に変更します
-export function SignoutButton() {
+interface SignoutButtonProps {
+  onSignOutSuccess?: () => void
+}
+
+export function SignoutButton({ onSignOutSuccess }: SignoutButtonProps) {
   const [loading, setLoading] = useState(false)
 
   const handleSignOut = async () => {
@@ -20,8 +23,13 @@ export function SignoutButton() {
       // サーバーサイドのセッションもクリア
       await fetch("/auth/signout", { method: "POST" })
 
-      // 強制的にページをリロード
-      window.location.href = "/"
+      // コールバック関数があれば実行
+      if (onSignOutSuccess) {
+        onSignOutSuccess()
+      } else {
+        // 強制的にページをリロード
+        window.location.href = "/"
+      }
     } catch (error) {
       console.error("サインアウトエラー:", error)
     } finally {

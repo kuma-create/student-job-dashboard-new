@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import { Bell, Menu, X } from "lucide-react"
@@ -12,112 +12,98 @@ import { MobileNavigation } from "./mobile-navigation"
 
 export function Header() {
   const pathname = usePathname()
+  const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState<any>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
 
-  useEffect(() => {
-    // Supabaseクライアントを作成
-    const supabase = createClient()
+  // ユーザー情報を取得する関数
+  const fetchUserData = async () => {
+    try {
+      setLoading(true)
+      const supabase = createClient()
 
-    // セッションを確認する関数
-    const checkSession = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
+      // セッション情報を取得
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession()
 
-        // ユーザー状態を更新
-        setUser(session?.user || null)
+      if (sessionError) {
+        console.error("セッション取得エラー:", sessionError)
+        setUser(null)
+        setUserRole(null)
+        setProfile(null)
+        return
+      }
 
-        if (session?.user) {
-          try {
-            // ユーザーロールを取得
-            const { data: roleData } = await supabase
-              .from("user_roles")
-              .select("role")
+      // ユーザー状態を更新
+      setUser(session?.user || null)
+
+      if (session?.user) {
+        try {
+          // ユーザーロールを取得
+          const { data: roleData, error: roleError } = await supabase
+            .from("user_roles")
+            .select("role")
+            .eq("id", session.user.id)
+            .single()
+
+          if (roleError) {
+            console.error("ロール取得エラー:", roleError)
+          }
+
+          setUserRole(roleData?.role || null)
+          console.log("User role:", roleData?.role)
+
+          // プロフィール情報を取得
+          if (roleData?.role === "student") {
+            const { data: profileData, error: profileError } = await supabase
+              .from("student_profiles")
+              .select("*")
               .eq("id", session.user.id)
               .single()
 
-            setUserRole(roleData?.role || null)
-            console.log("User role:", roleData?.role)
-
-            // プロフィール情報を取得
-            if (roleData?.role === "student") {
-              const { data: profileData } = await supabase
-                .from("student_profiles")
-                .select("*")
-                .eq("id", session.user.id)
-                .single()
-
-              setProfile(profileData)
-            } else if (roleData?.role === "company") {
-              // 企業プロフィールがあれば取得
-              setProfile({
-                company_name: session.user.user_metadata?.company_name || "企業名未設定",
-              })
+            if (profileError) {
+              console.error("プロフィール取得エラー:", profileError)
             }
-          } catch (profileError) {
-            console.error("プロフィール取得エラー:", profileError)
-          }
-        }
-      } catch (error) {
-        console.error("セッション取得エラー:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
 
-    // 初期セッション確認
-    checkSession()
+            setProfile(profileData)
+          } else if (roleData?.role === "company") {
+            // 企業プロフィールがあれば取得
+            setProfile({
+              company_name: session.user.user_metadata?.company_name || "企業名未設定",
+            })
+          }
+        } catch (profileError) {
+          console.error("プロフィール取得エラー:", profileError)
+        }
+      } else {
+        setUserRole(null)
+        setProfile(null)
+      }
+    } catch (error) {
+      console.error("ユーザーデータ取得エラー:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    // 初期ユーザーデータ取得
+    fetchUserData()
+
+    // Supabaseクライアントを作成
+    const supabase = createClient()
 
     // 認証状態変更リスナー
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth state changed:", event, session?.user?.id)
 
-      // ユーザー状態を更新
-      setUser(session?.user || null)
-
-      // ユーザーロールとプロフィール情報を更新
-      if (session?.user) {
-        supabase
-          .from("user_roles")
-          .select("role")
-          .eq("id", session.user.id)
-          .single()
-          .then(({ data: roleData }) => {
-            setUserRole(roleData?.role || null)
-
-            // ユーザーロールに基づいてプロフィール情報を取得
-            if (roleData?.role === "student") {
-              return supabase
-                .from("student_profiles")
-                .select("*")
-                .eq("id", session.user.id)
-                .single()
-                .then(({ data }) => {
-                  setProfile(data)
-                })
-            } else if (roleData?.role === "company") {
-              // 企業プロフィールがあれば取得
-              setProfile({
-                company_name: session.user.user_metadata?.company_name || "企業名未設定",
-              })
-              return Promise.resolve()
-            }
-            return Promise.resolve()
-          })
-          .catch((error) => {
-            console.error("ユーザーロール/プロフィール更新エラー:", error)
-            setUserRole(null)
-            setProfile(null)
-          })
-      } else {
-        setUserRole(null)
-        setProfile(null)
-      }
+      // 認証状態が変わったら再度ユーザーデータを取得
+      fetchUserData()
     })
 
     // クリーンアップ関数
@@ -228,7 +214,14 @@ export function Header() {
                 </Link>
               </div>
               <div className="hidden md:block">
-                <SignoutButton />
+                <SignoutButton
+                  onSignOutSuccess={() => {
+                    setUser(null)
+                    setUserRole(null)
+                    setProfile(null)
+                    router.push("/")
+                  }}
+                />
               </div>
             </>
           ) : (
