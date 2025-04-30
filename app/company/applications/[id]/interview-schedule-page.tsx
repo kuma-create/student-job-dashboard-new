@@ -1,9 +1,23 @@
-import { createServerClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
+import { redirect, notFound } from "next/navigation"
 import InterviewScheduleClient from "./interview-schedule-client"
 
-export default async function InterviewSchedulePage({ params }: { params: { id: string } }) {
-  const supabase = createServerClient()
+interface InterviewSchedulePageProps {
+  params: {
+    id: string
+  }
+}
+
+export default async function InterviewSchedulePage({ params }: InterviewSchedulePageProps) {
+  // 応募IDを取得
+  const applicationId = Number.parseInt(params.id)
+
+  // 無効なIDの場合は404
+  if (isNaN(applicationId)) {
+    return notFound()
+  }
+
+  const supabase = createClient()
 
   // セッションを取得
   const {
@@ -15,25 +29,24 @@ export default async function InterviewSchedulePage({ params }: { params: { id: 
     redirect("/auth/signin")
   }
 
-  // 応募IDを取得
-  const applicationId = Number.parseInt(params.id)
-
   // 応募データを取得して、自社の求人に対する応募かどうかを確認
-  const { data: application } = await supabase
+  // リレーションを明示的に指定して取得
+  const { data: application, error } = await supabase
     .from("applications")
     .select(`
       id,
       job_id,
-      jobs (
+      job:job_id (
         company_id
       )
     `)
-    .eq("id", applicationId)
+    .eq("id", params.id)
     .single()
 
-  // 応募が存在しない場合はリダイレクト
-  if (!application) {
-    redirect("/company/applications")
+  // 応募が存在しない場合は404
+  if (error || !application) {
+    console.error("応募データの取得エラー:", error)
+    return notFound()
   }
 
   // 企業ユーザーのプロフィールを取得
@@ -49,7 +62,8 @@ export default async function InterviewSchedulePage({ params }: { params: { id: 
   }
 
   // 自社の求人に対する応募でない場合はリダイレクト
-  if (application.jobs.company_id !== companyUser.company_id) {
+  // job.company_id を使用するように修正
+  if (application.job.company_id !== companyUser.company_id) {
     redirect("/company/applications")
   }
 

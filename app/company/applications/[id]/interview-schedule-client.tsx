@@ -1,10 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
-import { createClient } from "@/lib/supabase/client"
 import { Loader2, ChevronLeft, Calendar, Clock, MapPin, LinkIcon, FileText, CheckCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -12,20 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
-
-// 面接スケジュールの型定義
-interface InterviewSchedule {
-  id: number
-  application_id: number
-  scheduled_at: string
-  status: "pending" | "confirmed" | "cancelled"
-  duration_minutes: number
-  location: string | null
-  meeting_link: string | null
-  notes: string | null
-  created_at: string
-  updated_at: string
-}
+import { useInterviewSchedules } from "@/hooks/use-interview-schedules"
 
 interface InterviewScheduleClientProps {
   applicationId: number
@@ -34,80 +19,9 @@ interface InterviewScheduleClientProps {
 export default function InterviewScheduleClient({ applicationId }: InterviewScheduleClientProps) {
   const router = useRouter()
   const { toast } = useToast()
-  const supabase = createClient()
 
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [pendingSchedules, setPendingSchedules] = useState<InterviewSchedule[]>([])
-  const [confirmedSchedule, setConfirmedSchedule] = useState<InterviewSchedule | null>(null)
-  const [isConfirming, setIsConfirming] = useState(false)
-
-  // 面接スケジュールを取得する
-  const fetchInterviewSchedules = async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      const { data, error } = await supabase
-        .from("interview_schedules")
-        .select("*")
-        .eq("application_id", applicationId)
-        .order("scheduled_at", { ascending: true })
-
-      if (error) throw error
-
-      // データを確認済みと未確認に分ける
-      const confirmed = data.find((schedule) => schedule.status === "confirmed") || null
-      const pending = data.filter((schedule) => schedule.status === "pending")
-
-      setConfirmedSchedule(confirmed)
-      setPendingSchedules(pending)
-    } catch (err) {
-      console.error("面接スケジュールの取得に失敗しました:", err)
-      setError("面接スケジュールの取得に失敗しました。再度お試しください。")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // 初回レンダリング時にデータを取得
-  useEffect(() => {
-    fetchInterviewSchedules()
-  }, [applicationId])
-
-  // 面接日程を確定する
-  const confirmSchedule = async (scheduleId: number) => {
-    try {
-      setIsConfirming(true)
-
-      const { error } = await supabase
-        .from("interview_schedules")
-        .update({
-          status: "confirmed",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", scheduleId)
-
-      if (error) throw error
-
-      toast({
-        title: "面接日程を確定しました",
-        description: "応募者に面接日程が通知されます。",
-      })
-
-      // データを再取得して表示を更新
-      await fetchInterviewSchedules()
-    } catch (err) {
-      console.error("面接日程の確定に失敗しました:", err)
-      toast({
-        title: "エラーが発生しました",
-        description: "面接日程の確定に失敗しました。もう一度お試しください。",
-        variant: "destructive",
-      })
-    } finally {
-      setIsConfirming(false)
-    }
-  }
+  const { isLoading, error, pendingSchedules, confirmedSchedule, isConfirming, confirmSchedule } =
+    useInterviewSchedules(applicationId)
 
   // 日付をフォーマットする
   const formatDateTime = (dateString: string) => {
