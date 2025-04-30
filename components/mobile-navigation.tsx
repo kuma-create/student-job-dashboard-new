@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Bell, Home, Briefcase, Trophy, Newspaper, User, LogOut } from "lucide-react"
 import { SignoutButton } from "@/components/auth/signout-button"
+import Image from "next/image"
 
 interface MobileNavigationProps {
   user: any
@@ -24,7 +25,7 @@ export function MobileNavigation({ user, userRole, onClose }: MobileNavigationPr
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-50" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 md:hidden" onClick={onClose}>
       <div
         className="absolute right-0 top-16 h-[calc(100vh-4rem)] w-64 overflow-y-auto bg-white p-4 shadow-lg"
         onClick={(e) => e.stopPropagation()}
@@ -33,7 +34,9 @@ export function MobileNavigation({ user, userRole, onClose }: MobileNavigationPr
           // ログイン済みの場合
           <>
             <div className="mb-6 flex items-center border-b pb-4">
-              <div className="h-10 w-10 rounded-full bg-gray-200"></div>
+              <div className="relative h-10 w-10 overflow-hidden rounded-full bg-gray-200">
+                <Image src="/mystical-forest-spirit.png" alt="" fill className="object-cover" />
+              </div>
               <div className="ml-3">
                 <p className="font-medium">
                   {userRole === "company"

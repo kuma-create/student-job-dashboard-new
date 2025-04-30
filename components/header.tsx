@@ -14,9 +14,39 @@ export function Header() {
   const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(false) // 初期値をfalseに変更
+  const [loading, setLoading] = useState(false)
   const [profile, setProfile] = useState<any>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
+  const [windowWidth, setWindowWidth] = useState<number>(typeof window !== "undefined" ? window.innerWidth : 0)
+
+  // ウィンドウサイズの変更を監視
+  useEffect(() => {
+    // クライアントサイドでのみ実行
+    if (typeof window === "undefined") return
+
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth)
+
+      // PCサイズの場合はメニューを閉じる
+      if (window.innerWidth >= 768) {
+        setIsMenuOpen(false)
+      }
+    }
+
+    // 初期値設定
+    setWindowWidth(window.innerWidth)
+
+    // リサイズイベントリスナーを追加
+    window.addEventListener("resize", handleResize)
+
+    // クリーンアップ
+    return () => {
+      window.removeEventListener("resize", handleResize)
+    }
+  }, [])
+
+  // モバイル表示かどうかを判定
+  const isMobile = windowWidth < 768
 
   useEffect(() => {
     const supabase = createClient()
@@ -212,7 +242,10 @@ export function Header() {
         </div>
       </div>
 
-      {isMenuOpen && <MobileNavigation user={user} userRole={userRole} onClose={() => setIsMenuOpen(false)} />}
+      {/* モバイルナビゲーションはモバイル表示かつメニューが開いている場合のみ表示 */}
+      {isMenuOpen && isMobile && (
+        <MobileNavigation user={user} userRole={userRole} onClose={() => setIsMenuOpen(false)} />
+      )}
     </header>
   )
 }
