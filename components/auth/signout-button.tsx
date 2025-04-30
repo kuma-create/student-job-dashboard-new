@@ -1,14 +1,15 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
+import { Button } from "@/components/ui/button"
 
 interface SignoutButtonProps {
   onSignOutSuccess?: () => void
+  className?: string
 }
 
-export function SignoutButton({ onSignOutSuccess }: SignoutButtonProps) {
+export function SignoutButton({ onSignOutSuccess, className }: SignoutButtonProps) {
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSignOut = async () => {
@@ -17,15 +18,13 @@ export function SignoutButton({ onSignOutSuccess }: SignoutButtonProps) {
       const supabase = createClient()
       await supabase.auth.signOut()
 
-      // サインアウト後の処理
       if (onSignOutSuccess) {
         onSignOutSuccess()
       } else {
-        // 直接ページ遷移を使用して確実にリロードする
         window.location.href = "/"
       }
     } catch (error) {
-      console.error("サインアウトエラー:", error)
+      console.error("ログアウトエラー:", error)
     } finally {
       setIsLoading(false)
     }
@@ -34,10 +33,9 @@ export function SignoutButton({ onSignOutSuccess }: SignoutButtonProps) {
   return (
     <Button
       variant="ghost"
-      size="sm"
       onClick={handleSignOut}
       disabled={isLoading}
-      className="text-gray-700 hover:text-red-600 hover:bg-red-50"
+      className={`text-sm font-medium text-gray-700 hover:text-red-600 transition-colors ${className || ""}`}
     >
       {isLoading ? "ログアウト中..." : "ログアウト"}
     </Button>

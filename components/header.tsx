@@ -1,21 +1,22 @@
 "use client"
 
+import type React from "react"
+
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
 import Image from "next/image"
-import { Bell, Menu, X, User, Briefcase, MessageSquare, FileText } from 'lucide-react'
+import { Bell, Menu, X, User, Briefcase, MessageSquare, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { SignoutButton } from "@/components/auth/signout-button"
 import { createClient } from "@/lib/supabase/client"
 import { MobileNavigation } from "./mobile-navigation"
 
 // ファイルの先頭（importの後）に以下の型定義を追加してください
 type NavLink = {
-  href: string;
-  label: string;
-  icon?: React.ElementType; // アイコンはオプショナル
-};
+  href: string
+  label: string
+  icon?: React.ElementType // アイコンはオプショナル
+}
 
 export function Header() {
   const pathname = usePathname()
@@ -135,7 +136,7 @@ export function Header() {
     { href: "/jobs", label: "求人検索" },
     { href: "/grandprix", label: "就活グランプリ" },
     { href: "/features", label: "特集" },
-  ];
+  ]
 
   // 学生ユーザー向けのナビゲーションリンク
   const studentNavLinks: NavLink[] = [
@@ -143,7 +144,7 @@ export function Header() {
     { href: "/jobs", label: "求人検索", icon: Briefcase },
     { href: "/applications", label: "応募管理", icon: FileText },
     { href: "/messages", label: "メッセージ", icon: MessageSquare },
-  ];
+  ]
 
   // 企業ユーザー向けのナビゲーションリンク
   const companyNavLinks: NavLink[] = [
@@ -151,7 +152,7 @@ export function Header() {
     { href: "/company/jobs", label: "求人管理", icon: Briefcase },
     { href: "/company/applications", label: "応募者管理", icon: FileText },
     { href: "/company/messages", label: "メッセージ", icon: MessageSquare },
-  ];
+  ]
 
   // ユーザーの種類に応じたナビゲーションリンクを取得
   const getNavLinks = () => {
@@ -233,7 +234,18 @@ export function Header() {
                 </Link>
               </div>
               <div className="hidden md:block">
-                <SignoutButton />
+                <Button
+                  variant="ghost"
+                  className="text-sm font-medium text-gray-700 hover:text-red-600 transition-colors"
+                  onClick={() => {
+                    const supabase = createClient()
+                    supabase.auth.signOut().then(() => {
+                      window.location.href = "/"
+                    })
+                  }}
+                >
+                  ログアウト
+                </Button>
               </div>
             </>
           ) : (
