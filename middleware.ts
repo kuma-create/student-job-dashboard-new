@@ -46,12 +46,6 @@ export async function middleware(req: NextRequest) {
       path.startsWith("/chat") ||
       path === "/dashboard"
 
-    // 現在のパスを取得
-    // const path = req.nextUrl.pathname
-
-    // // リダイレクトループを検出（/auth/signin?redirect=%2Fdashboard のようなパターン）
-    // const isRedirectLoop = req.nextUrl.searchParams.has("redirect") && req.nextUrl.pathname.includes("/auth/signin")
-
     // ダッシュボード関連のパスかどうかを確認
     const isDashboardPath =
       path.startsWith("/dashboard") ||
@@ -65,11 +59,6 @@ export async function middleware(req: NextRequest) {
     // 企業関連のパスかどうかを確認
     const isCompanyPath =
       path.startsWith("/company") && !path.startsWith("/company/contact") && !path.startsWith("/company/pricing")
-
-    // // リダイレクトループが検出された場合、直接ダッシュボードに遷移
-    // if (isRedirectLoop && session) {
-    //   return NextResponse.redirect(new URL("/dashboard", req.url))
-    // }
 
     // 認証が必要なパスへのアクセスで、セッションがない場合
     if ((isDashboardPath || isCompanyPath) && !session) {
