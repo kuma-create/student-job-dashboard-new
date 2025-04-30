@@ -1,9 +1,8 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { Database } from "@/lib/database.types"
@@ -15,7 +14,6 @@ interface AuthFormProps {
 }
 
 export function AuthForm({ type = "signin", redirectUrl, error: initialError }: AuthFormProps) {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClientComponentClient<Database>()
 
@@ -25,10 +23,8 @@ export function AuthForm({ type = "signin", redirectUrl, error: initialError }: 
   const [error, setError] = useState<string | null>(initialError || null)
   const [message, setMessage] = useState<string | null>(null)
 
-  // リダイレクト先を取得
+  // リダイレクト先の決定
   const redirect = redirectUrl || searchParams.get("redirect")
-
-  // リダイレクト先が /auth/signin を含む場合は、リダイレクトループを防ぐためにダッシュボードに遷移
   const redirectPath =
     redirect && redirect.includes("/auth/signin")
       ? "/dashboard"
@@ -37,7 +33,6 @@ export function AuthForm({ type = "signin", redirectUrl, error: initialError }: 
         : "/dashboard"
 
   useEffect(() => {
-    // エラーメッセージをクリア
     setError(null)
     setMessage(null)
   }, [type])
@@ -57,11 +52,8 @@ export function AuthForm({ type = "signin", redirectUrl, error: initialError }: 
 
         if (error) throw error
 
-        // ログイン成功後、リダイレクト
-        // window.location.href を使わず、router.push を使用
-        router.push(redirectPath)
-        // 強制的にページをリロード
-        router.refresh()
+        // ✅ フルリロードでセッションCookieを反映
+        window.location.href = redirectPath
       } else {
         const { error } = await supabase.auth.signUp({
           email,

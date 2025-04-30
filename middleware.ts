@@ -3,11 +3,19 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next()
+  // キャッシュ制御を明示
+  const res = NextResponse.next({
+    headers: {
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      Pragma: "no-cache",
+      Expires: "0",
+      "Surrogate-Control": "no-store",
+    },
+  })
+
   const supabase = createMiddlewareClient({ req, res })
 
   try {
-    // セッション取得
     const {
       data: { session },
       error: sessionError,
@@ -17,7 +25,6 @@ export async function middleware(req: NextRequest) {
       console.error("ミドルウェア: セッション取得エラー:", sessionError)
     }
 
-    // デバッグログ
     console.log("middleware セッション:", session?.user?.id || "なし")
 
     const path = req.nextUrl.pathname
@@ -53,7 +60,11 @@ export async function middleware(req: NextRequest) {
 
     if ((isDashboardPath || isCompanyPath) && !session) {
       const redirectPath = encodeURIComponent(path)
-      return NextResponse.redirect(new URL(`/auth/signin?redirect=${redirectPath}`, req.url))
+      const redirectResponse = NextResponse.redirect(
+        new URL(`/auth/signin?redirect=${redirectPath}`, req.url)
+      )
+      redirectResponse.headers.set("Cache-Control", "no-store")
+      return redirectResponse
     }
 
     return res
@@ -73,6 +84,6 @@ export const config = {
     "/offers/:path*",
     "/chat/:path*",
     "/company/:path*",
-    // ❌ "/auth/signin" は除外 → 無限ループ防止
+    // ✅ /auth/** 系は除外（リダイレクトループ防止）
   ],
 }

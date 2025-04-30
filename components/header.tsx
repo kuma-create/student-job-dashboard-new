@@ -19,22 +19,18 @@ export function Header() {
   const [userRole, setUserRole] = useState<string | null>(null)
 
   useEffect(() => {
-    // Supabaseクライアントを作成
     const supabase = createClient()
 
-    // セッションを確認する関数
     const checkSession = async () => {
       try {
         const {
           data: { session },
         } = await supabase.auth.getSession()
 
-        // ユーザー状態を更新
         setUser(session?.user || null)
 
         if (session?.user) {
           try {
-            // ユーザーロールを取得
             const { data: roleData, error: roleError } = await supabase
               .from("user_roles")
               .select("role")
@@ -48,7 +44,6 @@ export function Header() {
               setUserRole(roleData?.role || null)
               console.log("User role:", roleData?.role)
 
-              // プロフィール情報を取得
               if (roleData?.role === "student") {
                 const { data: profileData, error: profileError } = await supabase
                   .from("student_profiles")
@@ -62,7 +57,6 @@ export function Header() {
                   setProfile(profileData)
                 }
               } else if (roleData?.role === "company") {
-                // 企業プロフィールがあれば取得
                 setProfile({
                   company_name: session.user.user_metadata?.company_name || "企業名未設定",
                 })
@@ -79,17 +73,18 @@ export function Header() {
       }
     }
 
-    // 初期セッション確認
     checkSession()
 
-    // 認証状態変更リスナー
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Auth state changed:", event, session?.user?.id)
 
-      // ユーザー状態を更新
       setUser(session?.user || null)
 
-      // ユーザーロールとプロフィール情報を更新
+      // ✅ ログイン成功時にリロードを追加（ここが唯一の追加点）
+      if (event === "SIGNED_IN") {
+        window.location.reload()
+      }
+
       if (session?.user) {
         try {
           const { data: roleData, error: roleError } = await supabase
@@ -107,7 +102,6 @@ export function Header() {
 
           setUserRole(roleData?.role || null)
 
-          // ユーザーロールに基づいてプロフィール情報を取得
           if (roleData?.role === "student") {
             const { data: profileData, error: profileError } = await supabase
               .from("student_profiles")
@@ -121,7 +115,6 @@ export function Header() {
               setProfile(profileData)
             }
           } else if (roleData?.role === "company") {
-            // 企業プロフィールがあれば取得
             setProfile({
               company_name: session.user.user_metadata?.company_name || "企業名未設定",
             })
@@ -137,32 +130,22 @@ export function Header() {
       }
     })
 
-    // クリーンアップ関数
     return () => {
       authListener.subscription.unsubscribe()
     }
-  }, []) // 依存配列を空にして、マウント時のみ実行
+  }, [])
 
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen)
-  }
+  const toggleMenu = () => setIsMenuOpen(!isMenuOpen)
 
-  const isActive = (path: string) => {
-    return pathname === path || pathname?.startsWith(path + "/")
-  }
+  const isActive = (path: string) =>
+    pathname === path || pathname?.startsWith(path + "/")
 
-  // デバッグ用
   useEffect(() => {
     console.log("Current auth state:", { user: user?.id, userRole, loading })
   }, [user, userRole, loading])
 
-  // ダッシュボードへのリンク - ユーザーロールに基づいて変更
-  const getDashboardLink = () => {
-    if (userRole === "company") {
-      return "/company/dashboard"
-    }
-    return "/dashboard"
-  }
+  const getDashboardLink = () =>
+    userRole === "company" ? "/company/dashboard" : "/dashboard"
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-white">
@@ -222,7 +205,6 @@ export function Header() {
         </div>
 
         <div className="flex items-center space-x-4">
-          {/* ユーザーがログインしている場合 */}
           {user ? (
             <>
               <Link href="/notifications" className="relative text-gray-700 hover:text-red-600">
@@ -249,7 +231,6 @@ export function Header() {
               </div>
             </>
           ) : (
-            // ユーザーがログインしていない場合（ローディング中も含む）
             <div className="hidden space-x-2 md:flex">
               <Button asChild variant="outline">
                 <Link href="/auth/signin">ログイン</Link>
