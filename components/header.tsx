@@ -35,29 +35,38 @@ export function Header() {
         if (session?.user) {
           try {
             // ユーザーロールを取得
-            const { data: roleData } = await supabase
+            const { data: roleData, error: roleError } = await supabase
               .from("user_roles")
               .select("role")
               .eq("id", session.user.id)
               .single()
 
-            setUserRole(roleData?.role || null)
-            console.log("User role:", roleData?.role)
+            if (roleError) {
+              console.error("ユーザーロール取得エラー:", roleError)
+              setUserRole(null)
+            } else {
+              setUserRole(roleData?.role || null)
+              console.log("User role:", roleData?.role)
 
-            // プロフィール情報を取得
-            if (roleData?.role === "student") {
-              const { data: profileData } = await supabase
-                .from("student_profiles")
-                .select("*")
-                .eq("id", session.user.id)
-                .single()
+              // プロフィール情報を取得
+              if (roleData?.role === "student") {
+                const { data: profileData, error: profileError } = await supabase
+                  .from("student_profiles")
+                  .select("*")
+                  .eq("id", session.user.id)
+                  .single()
 
-              setProfile(profileData)
-            } else if (roleData?.role === "company") {
-              // 企業プロフィールがあれば取得
-              setProfile({
-                company_name: session.user.user_metadata?.company_name || "企業名未設定",
-              })
+                if (profileError) {
+                  console.error("プロフィール取得エラー:", profileError)
+                } else {
+                  setProfile(profileData)
+                }
+              } else if (roleData?.role === "company") {
+                // 企業プロフィールがあれば取得
+                setProfile({
+                  company_name: session.user.user_metadata?.company_name || "企業名未設定",
+                })
+              }
             }
           } catch (profileError) {
             console.error("プロフィール取得エラー:", profileError)

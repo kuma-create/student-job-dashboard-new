@@ -1,52 +1,34 @@
-"use client"
+import { AuthForm } from "@/components/auth/auth-form"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
 
-import { useState } from "react"
-import { createClient } from "@/lib/supabase/client"
-import { Button } from "@/components/ui/button"
-import { Loader2 } from "lucide-react"
+export default async function SignIn({
+  searchParams,
+}: {
+  searchParams: { redirect?: string; error?: string }
+}) {
+  // サーバーサイドでセッションを確認
+  const supabase = createClient()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
 
-interface SignoutButtonProps {
-  className?: string // classNameプロパティを追加
-  onSignOutSuccess?: () => void
-}
-
-export function SignoutButton({ className, onSignOutSuccess }: SignoutButtonProps) {
-  const [loading, setLoading] = useState(false)
-
-  const handleSignOut = async () => {
-    setLoading(true)
-    try {
-      const supabase = createClient()
-
-      // サインアウト処理
-      await supabase.auth.signOut()
-
-      // サーバーサイドのセッションもクリア
-      await fetch("/auth/signout", { method: "POST" })
-
-      // コールバック関数があれば実行
-      if (onSignOutSuccess) {
-        onSignOutSuccess()
-      } else {
-        // 強制的にページをリロード
-        window.location.href = "/"
-      }
-    } catch (error) {
-      console.error("サインアウトエラー:", error)
-    } finally {
-      setLoading(false)
-    }
+  // すでにログインしている場合はリダイレクト
+  if (session) {
+    // リダイレクトパラメータがある場合はそちらへ、なければダッシュボードへ
+    const redirectTo = searchParams.redirect || "/dashboard"
+    redirect(redirectTo)
   }
 
   return (
-    <Button
-      variant="outline"
-      onClick={handleSignOut}
-      disabled={loading}
-      className={className} // classNameを適用
-    >
-      {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-      ログアウト
-    </Button>
+    <div className="container mx-auto flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center py-8">
+      <div className="mx-auto w-full max-w-md space-y-6">
+        <div className="space-y-2 text-center">
+          <h1 className="text-3xl font-bold">ログイン</h1>
+          <p className="text-gray-500">アカウントにログインしてください</p>
+        </div>
+        <AuthForm redirectUrl={searchParams.redirect} error={searchParams.error} />
+      </div>
+    </div>
   )
 }
