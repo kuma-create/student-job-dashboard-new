@@ -1,9 +1,54 @@
-import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs"
+
+// 認証が必要なパス
+const authRequiredPaths = [
+  "/dashboard",
+  "/profile",
+  "/applications",
+  "/messages",
+  "/notifications",
+  "/company/dashboard",
+  "/company/jobs",
+  "/company/applications",
+  "/company/profile",
+  "/company/users",
+  "/company/messages",
+]
+
+// 認証済みユーザーがアクセスするとリダイレクトされるパス
+const authRedirectPaths = ["/auth/signin", "/auth/signup"]
+
+// 企業ユーザー専用のパス
+const companyOnlyPaths = [
+  "/company/dashboard",
+  "/company/jobs",
+  "/company/applications",
+  "/company/profile",
+  "/company/users",
+  "/company/messages",
+]
+
+// 学生ユーザー専用のパス
+const studentOnlyPaths = ["/dashboard", "/profile", "/applications", "/messages"]
 
 export async function middleware(request: NextRequest) {
   try {
+    const path = request.nextUrl.pathname
+
+    // 公開パスの場合はそのまま表示
+    if (
+      path === "/" ||
+      path.startsWith("/jobs") ||
+      path.startsWith("/features") ||
+      path.startsWith("/grandprix") ||
+      path.startsWith("/_next") ||
+      path.startsWith("/api") ||
+      path.includes(".")
+    ) {
+      return NextResponse.next()
+    }
+
     // Supabaseクライアントを作成
     const res = NextResponse.next()
     const supabase = createMiddlewareClient({ req: request, res })
@@ -13,65 +58,64 @@ export async function middleware(request: NextRequest) {
       data: { session },
     } = await supabase.auth.getSession()
 
-    // 現在のパス
-    const path = request.nextUrl.pathname
-
-    // 認証が必要なパス
-    const authRequiredPaths = [
-      "/dashboard",
-      "/profile",
-      "/applications",
-      "/messages",
-      "/company/dashboard",
-      "/company/profile",
-      "/company/jobs",
-      "/company/applications",
-    ]
-
-    // 認証済みユーザーがアクセスできないパス
-    const authRedirectPaths = ["/auth/signin", "/auth/signup"]
-
-    // ユーザーロールに基づくリダイレクト
-    if (session) {
-      // ユーザーロールを取得
+    // ユーザーロールを取得
+    let userRole = null
+    if (session?.user) {
       const { data: roleData } = await supabase.from("user_roles").select("role").eq("id", session.user.id).single()
 
-      const userRole = roleData?.role
-
-      // 認証済みユーザーがログインページなどにアクセスした場合、ダッシュボードにリダイレクト
-      if (authRedirectPaths.some((p) => path.startsWith(p))) {
-        const redirectUrl = userRole === "company" ? "/company/dashboard" : "/dashboard"
-        return NextResponse.redirect(new URL(redirectUrl, request.url))
-      }
-
-      // 企業ユーザーが学生専用ページにアクセスした場合、企業ダッシュボードにリダイレクト
-      if (userRole === "company" && path.startsWith("/dashboard")) {
-        return NextResponse.redirect(new URL("/company/dashboard", request.url))
-      }
-
-      // 学生ユーザーが企業専用ページにアクセスした場合、学生ダッシュボードにリダイレクト
-      if (userRole === "student" && path.startsWith("/company")) {
-        return NextResponse.redirect(new URL("/dashboard", request.url))
-      }
-    } else {
-      // 未認証ユーザーが認証が必要なページにアクセスした場合、ログインページにリダイレクト
-      if (authRequiredPaths.some((p) => path.startsWith(p))) {
-        // リダイレクト先のURLを作成
-        const redirectUrl = new URL("/auth/signin", request.url)
-        // リダイレクト後の遷移先を指定
-        redirectUrl.searchParams.set("redirect", path)
-
-        // キャッシュ制御ヘッダーを追加
-        const res = NextResponse.redirect(redirectUrl)
-        res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
-        res.headers.set("Pragma", "no-cache")
-        res.headers.set("Expires", "0")
-
-        return res
-      }
+      userRole = roleData?.role
     }
 
-    // キャッシュ制御ヘッダーを追加
+    // 未認証ユーザーが認証が必要なページにアクセスした場合、ログインページにリダイレクト
+    if (!session && authRequiredPaths.some((p) => path.startsWith(p))) {
+      const redirectUrl = new URL("/auth/signin", request.url)
+      redirectUrl.searchParams.set("redirect", path)
+
+      const redirectRes = NextResponse.redirect(redirectUrl)
+      // キャッシュ制御ヘッダーを追加
+      redirectRes.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
+      redirectRes.headers.set("Pragma", "no-cache")
+      redirectRes.headers.set("Expires", "0")
+
+      return redirectRes
+    }
+
+    // 認証済みユーザーがログインページなどにアクセスした場合、ダッシュボードにリダイレクト
+    if (session && authRedirectPaths.some((p) => path === p)) {
+      const dashboardPath = userRole === "company" ? "/company/dashboard" : "/dashboard"
+
+      const redirectRes = NextResponse.redirect(new URL(dashboardPath, request.url))
+      // キャッシュ制御ヘッダーを追加
+      redirectRes.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
+      redirectRes.headers.set("Pragma", "no-cache")
+      redirectRes.headers.set("Expires", "0")
+
+      return redirectRes
+    }
+
+    // 企業ユーザーが学生専用ページにアクセスした場合、企業ダッシュボードにリダイレクト
+    if (session && userRole === "company" && studentOnlyPaths.some((p) => path.startsWith(p))) {
+      const redirectRes = NextResponse.redirect(new URL("/company/dashboard", request.url))
+      // キャッシュ制御ヘッダーを追加
+      redirectRes.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
+      redirectRes.headers.set("Pragma", "no-cache")
+      redirectRes.headers.set("Expires", "0")
+
+      return redirectRes
+    }
+
+    // 学生ユーザーが企業専用ページにアクセスした場合、学生ダッシュボードにリダイレクト
+    if (session && userRole === "student" && companyOnlyPaths.some((p) => path.startsWith(p))) {
+      const redirectRes = NextResponse.redirect(new URL("/dashboard", request.url))
+      // キャッシュ制御ヘッダーを追加
+      redirectRes.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
+      redirectRes.headers.set("Pragma", "no-cache")
+      redirectRes.headers.set("Expires", "0")
+
+      return redirectRes
+    }
+
+    // レスポンスヘッダーにキャッシュ制御を追加
     res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
     res.headers.set("Pragma", "no-cache")
     res.headers.set("Expires", "0")
@@ -79,26 +123,11 @@ export async function middleware(request: NextRequest) {
     return res
   } catch (error) {
     console.error("Middleware error:", error)
-
     // エラーが発生した場合でも、ページ表示を妨げないようにする
-    const res = NextResponse.next()
-    res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
-    res.headers.set("Pragma", "no-cache")
-    res.headers.set("Expires", "0")
-
-    return res
+    return NextResponse.next()
   }
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public (public files)
-     */
-    "/((?!_next/static|_next/image|favicon.ico|public).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 }
