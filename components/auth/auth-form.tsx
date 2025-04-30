@@ -8,7 +8,13 @@ import Link from "next/link"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { Database } from "@/lib/database.types"
 
-export default function AuthForm({ type }: { type: "signin" | "signup" }) {
+interface AuthFormProps {
+  type?: "signin" | "signup"
+  redirectUrl?: string
+  error?: string | null
+}
+
+export function AuthForm({ type = "signin", redirectUrl, error: initialError }: AuthFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClientComponentClient<Database>()
@@ -16,11 +22,11 @@ export default function AuthForm({ type }: { type: "signin" | "signup" }) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(initialError || null)
   const [message, setMessage] = useState<string | null>(null)
 
   // リダイレクト先を取得
-  const redirect = searchParams.get("redirect")
+  const redirect = redirectUrl || searchParams.get("redirect")
 
   // リダイレクト先が /auth/signin を含む場合は、リダイレクトループを防ぐためにダッシュボードに遷移
   const redirectPath =
@@ -159,3 +165,5 @@ export default function AuthForm({ type }: { type: "signin" | "signup" }) {
     </div>
   )
 }
+
+export default AuthForm

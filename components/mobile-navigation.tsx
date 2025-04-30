@@ -4,32 +4,71 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { SignoutButton } from "@/components/auth/signout-button"
 import { Home, Search, FileText, User, MessageSquare, Info, Building, Users, PlusCircle, Settings } from "lucide-react"
+import { useState, useEffect } from "react"
+import { createClient } from "@/lib/supabase/client"
 
-interface MobileNavigationProps {
+export interface MobileNavigationProps {
   user?: any
-  userRole: string | null
-  onClose: () => void
+  userRole?: string | null
+  onClose?: () => void
 }
 
 export function MobileNavigation({ user, userRole, onClose }: MobileNavigationProps) {
   const pathname = usePathname()
-  const isCompanyUser = userRole === "company"
+  const [isOpen, setIsOpen] = useState(false)
+  const [localUser, setLocalUser] = useState<any>(user)
+  const [localUserRole, setLocalUserRole] = useState<string | null>(userRole || null)
+
+  // ユーザー情報が渡されない場合は自動的に取得
+  useEffect(() => {
+    if (!user) {
+      const fetchUserData = async () => {
+        const supabase = createClient()
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+
+        if (session) {
+          setLocalUser(session.user)
+
+          // ユーザーロールの取得
+          const { data: roleData } = await supabase.from("user_roles").select("role").eq("id", session.user.id).single()
+
+          if (roleData) {
+            setLocalUserRole(roleData.role)
+          }
+        }
+      }
+
+      fetchUserData().catch(console.error)
+    }
+  }, [user])
+
+  const handleClose = () => {
+    if (onClose) {
+      onClose()
+    } else {
+      setIsOpen(false)
+    }
+  }
+
+  const isCompanyUser = localUserRole === "company"
 
   return (
     <div className="fixed inset-0 top-16 z-50 grid h-[calc(100vh-4rem)] grid-flow-row auto-rows-max overflow-auto p-6 pb-32 shadow-md animate-in md:hidden bg-white">
       <div className="relative z-20 grid gap-6 p-4 rounded-md">
         <nav className="grid grid-flow-row auto-rows-max text-sm">
-          {!user ? (
+          {!localUser ? (
             // 未ログインユーザー向けメニュー
             <>
-              <Link href="/" className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-100" onClick={onClose}>
+              <Link href="/" className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-100" onClick={handleClose}>
                 <Home className="h-4 w-4" />
                 <span>ホーム</span>
               </Link>
               <Link
                 href="/features"
                 className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-100"
-                onClick={onClose}
+                onClick={handleClose}
               >
                 <Info className="h-4 w-4" />
                 <span>機能紹介</span>
@@ -37,7 +76,7 @@ export function MobileNavigation({ user, userRole, onClose }: MobileNavigationPr
               <Link
                 href="/company"
                 className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-100"
-                onClick={onClose}
+                onClick={handleClose}
               >
                 <Building className="h-4 w-4" />
                 <span>企業の方へ</span>
@@ -46,7 +85,7 @@ export function MobileNavigation({ user, userRole, onClose }: MobileNavigationPr
               <Link
                 href="/auth/signin"
                 className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-100"
-                onClick={onClose}
+                onClick={handleClose}
               >
                 <User className="h-4 w-4" />
                 <span>ログイン</span>
@@ -54,14 +93,14 @@ export function MobileNavigation({ user, userRole, onClose }: MobileNavigationPr
               <Link
                 href="/auth/reset-password"
                 className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-100"
-                onClick={onClose}
+                onClick={handleClose}
               >
                 パスワードをリセット
               </Link>
               <Link
                 href="/auth/signup?type=student"
                 className="flex items-center gap-2 p-2 rounded-md bg-red-600 text-white hover:bg-red-700"
-                onClick={onClose}
+                onClick={handleClose}
               >
                 <User className="h-4 w-4" />
                 <span>新規登録</span>
@@ -75,7 +114,7 @@ export function MobileNavigation({ user, userRole, onClose }: MobileNavigationPr
                 className={`flex items-center gap-2 p-2 rounded-md ${
                   pathname === "/company/dashboard" ? "bg-red-100 text-red-600" : "hover:bg-gray-100"
                 }`}
-                onClick={onClose}
+                onClick={handleClose}
               >
                 <Home className="h-4 w-4" />
                 <span>ダッシュボード</span>
@@ -85,7 +124,7 @@ export function MobileNavigation({ user, userRole, onClose }: MobileNavigationPr
                 className={`flex items-center gap-2 p-2 rounded-md ${
                   pathname.startsWith("/company/jobs") ? "bg-red-100 text-red-600" : "hover:bg-gray-100"
                 }`}
-                onClick={onClose}
+                onClick={handleClose}
               >
                 <FileText className="h-4 w-4" />
                 <span>求人管理</span>
@@ -95,7 +134,7 @@ export function MobileNavigation({ user, userRole, onClose }: MobileNavigationPr
                 className={`flex items-center gap-2 p-2 rounded-md ${
                   pathname === "/company/jobs/create" ? "bg-red-100 text-red-600" : "hover:bg-gray-100"
                 }`}
-                onClick={onClose}
+                onClick={handleClose}
               >
                 <PlusCircle className="h-4 w-4" />
                 <span>新規求人作成</span>
@@ -105,7 +144,7 @@ export function MobileNavigation({ user, userRole, onClose }: MobileNavigationPr
                 className={`flex items-center gap-2 p-2 rounded-md ${
                   pathname.startsWith("/company/applications") ? "bg-red-100 text-red-600" : "hover:bg-gray-100"
                 }`}
-                onClick={onClose}
+                onClick={handleClose}
               >
                 <Users className="h-4 w-4" />
                 <span>応募者管理</span>
@@ -115,7 +154,7 @@ export function MobileNavigation({ user, userRole, onClose }: MobileNavigationPr
                 className={`flex items-center gap-2 p-2 rounded-md ${
                   pathname.startsWith("/company/messages") ? "bg-red-100 text-red-600" : "hover:bg-gray-100"
                 }`}
-                onClick={onClose}
+                onClick={handleClose}
               >
                 <MessageSquare className="h-4 w-4" />
                 <span>メッセージ</span>
@@ -126,7 +165,7 @@ export function MobileNavigation({ user, userRole, onClose }: MobileNavigationPr
                 className={`flex items-center gap-2 p-2 rounded-md ${
                   pathname === "/company/profile" ? "bg-red-100 text-red-600" : "hover:bg-gray-100"
                 }`}
-                onClick={onClose}
+                onClick={handleClose}
               >
                 <Building className="h-4 w-4" />
                 <span>企業情報</span>
@@ -136,7 +175,7 @@ export function MobileNavigation({ user, userRole, onClose }: MobileNavigationPr
                 className={`flex items-center gap-2 p-2 rounded-md ${
                   pathname === "/company/settings" ? "bg-red-100 text-red-600" : "hover:bg-gray-100"
                 }`}
-                onClick={onClose}
+                onClick={handleClose}
               >
                 <Settings className="h-4 w-4" />
                 <span>設定</span>
@@ -154,7 +193,7 @@ export function MobileNavigation({ user, userRole, onClose }: MobileNavigationPr
                 className={`flex items-center gap-2 p-2 rounded-md ${
                   pathname === "/dashboard" ? "bg-red-100 text-red-600" : "hover:bg-gray-100"
                 }`}
-                onClick={onClose}
+                onClick={handleClose}
               >
                 <Home className="h-4 w-4" />
                 <span>ダッシュボード</span>
@@ -164,7 +203,7 @@ export function MobileNavigation({ user, userRole, onClose }: MobileNavigationPr
                 className={`flex items-center gap-2 p-2 rounded-md ${
                   pathname.startsWith("/jobs") ? "bg-red-100 text-red-600" : "hover:bg-gray-100"
                 }`}
-                onClick={onClose}
+                onClick={handleClose}
               >
                 <Search className="h-4 w-4" />
                 <span>求人検索</span>
@@ -174,7 +213,7 @@ export function MobileNavigation({ user, userRole, onClose }: MobileNavigationPr
                 className={`flex items-center gap-2 p-2 rounded-md ${
                   pathname.startsWith("/applications") ? "bg-red-100 text-red-600" : "hover:bg-gray-100"
                 }`}
-                onClick={onClose}
+                onClick={handleClose}
               >
                 <FileText className="h-4 w-4" />
                 <span>応募履歴</span>
@@ -184,7 +223,7 @@ export function MobileNavigation({ user, userRole, onClose }: MobileNavigationPr
                 className={`flex items-center gap-2 p-2 rounded-md ${
                   pathname.startsWith("/messages") ? "bg-red-100 text-red-600" : "hover:bg-gray-100"
                 }`}
-                onClick={onClose}
+                onClick={handleClose}
               >
                 <MessageSquare className="h-4 w-4" />
                 <span>メッセージ</span>
@@ -195,7 +234,7 @@ export function MobileNavigation({ user, userRole, onClose }: MobileNavigationPr
                 className={`flex items-center gap-2 p-2 rounded-md ${
                   pathname === "/profile" ? "bg-red-100 text-red-600" : "hover:bg-gray-100"
                 }`}
-                onClick={onClose}
+                onClick={handleClose}
               >
                 <User className="h-4 w-4" />
                 <span>プロフィール</span>
@@ -211,3 +250,6 @@ export function MobileNavigation({ user, userRole, onClose }: MobileNavigationPr
     </div>
   )
 }
+
+// デフォルトエクスポートも追加
+export default MobileNavigation
