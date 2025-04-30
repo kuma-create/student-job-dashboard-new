@@ -1,71 +1,72 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Loader2 } from "lucide-react"
+import { LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
-import { toast } from "@/components/ui/use-toast"
 
 interface SignoutButtonProps {
-  className?: string
   onSignOutSuccess?: () => void
 }
 
-// 名前付きエクスポートとデフォルトエクスポートの両方を提供
-export function SignoutButton({ className, onSignOutSuccess }: SignoutButtonProps) {
-  const [loading, setLoading] = useState(false)
-  const router = useRouter()
+export function SignoutButton({ onSignOutSuccess }: SignoutButtonProps) {
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleSignOut = async () => {
     try {
-      setLoading(true)
+      setIsLoading(true)
       const supabase = createClient()
-      const { error } = await supabase.auth.signOut()
 
-      if (error) {
-        console.error("サインアウトエラー:", error)
-        toast({
-          title: "サインアウトエラー",
-          description: "サインアウト中にエラーが発生しました。もう一度お試しください。",
-          variant: "destructive",
-        })
-        return
-      }
+      // サインアウト処理
+      await supabase.auth.signOut()
 
-      // サインアウト成功
-      toast({
-        title: "サインアウト成功",
-        description: "正常にサインアウトしました。",
-      })
+      console.log("サインアウト成功")
 
-      // コールバック関数があれば実行
+      // コールバックがあれば実行
       if (onSignOutSuccess) {
         onSignOutSuccess()
       }
 
-      // ホームページにリダイレクト
-      router.push("/")
-      router.refresh()
+      // 完全なページリロードでセッション状態をリセット
+      window.location.href = "/"
     } catch (error) {
-      console.error("サインアウト処理エラー:", error)
-      toast({
-        title: "サインアウトエラー",
-        description: "サインアウト中に予期せぬエラーが発生しました。",
-        variant: "destructive",
-      })
+      console.error("サインアウトエラー:", error)
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
   return (
-    <Button variant="outline" onClick={handleSignOut} disabled={loading} className={className}>
-      {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-      ログアウト
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={handleSignOut}
+      disabled={isLoading}
+      className="text-gray-700 hover:text-red-600 hover:bg-red-50 transition-colors"
+    >
+      {isLoading ? (
+        <span className="flex items-center">
+          <svg
+            className="animate-spin -ml-1 mr-2 h-4 w-4 text-red-600"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            ></path>
+          </svg>
+          処理中...
+        </span>
+      ) : (
+        <span className="flex items-center">
+          <LogOut className="mr-1 h-4 w-4" />
+          ログアウト
+        </span>
+      )}
     </Button>
   )
 }
-
-// デフォルトエクスポートも追加
-export default SignoutButton
