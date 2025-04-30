@@ -4,11 +4,18 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
 import Image from "next/image"
-import { Bell, Menu, X } from "lucide-react"
+import { Bell, Menu, X, User, Briefcase, MessageSquare, FileText } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { SignoutButton } from "@/components/auth/signout-button"
 import { createClient } from "@/lib/supabase/client"
 import { MobileNavigation } from "./mobile-navigation"
+
+// ファイルの先頭（importの後）に以下の型定義を追加してください
+type NavLink = {
+  href: string;
+  label: string;
+  icon?: React.ElementType; // アイコンはオプショナル
+};
 
 export function Header() {
   const pathname = usePathname()
@@ -122,6 +129,38 @@ export function Header() {
     return userRole === "company" ? "/company/profile" : "/profile"
   }
 
+  // 以下の行を修正してください
+  // ログイン前のナビゲーションリンク
+  const publicNavLinks: NavLink[] = [
+    { href: "/jobs", label: "求人検索" },
+    { href: "/grandprix", label: "就活グランプリ" },
+    { href: "/features", label: "特集" },
+  ];
+
+  // 学生ユーザー向けのナビゲーションリンク
+  const studentNavLinks: NavLink[] = [
+    { href: "/dashboard", label: "マイページ", icon: User },
+    { href: "/jobs", label: "求人検索", icon: Briefcase },
+    { href: "/applications", label: "応募管理", icon: FileText },
+    { href: "/messages", label: "メッセージ", icon: MessageSquare },
+  ];
+
+  // 企業ユーザー向けのナビゲーションリンク
+  const companyNavLinks: NavLink[] = [
+    { href: "/company/dashboard", label: "ダッシュボード", icon: User },
+    { href: "/company/jobs", label: "求人管理", icon: Briefcase },
+    { href: "/company/applications", label: "応募者管理", icon: FileText },
+    { href: "/company/messages", label: "メッセージ", icon: MessageSquare },
+  ];
+
+  // ユーザーの種類に応じたナビゲーションリンクを取得
+  const getNavLinks = () => {
+    if (!user) return publicNavLinks
+    return userRole === "company" ? companyNavLinks : studentNavLinks
+  }
+
+  const navLinks = getNavLinks()
+
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-white shadow-sm transition-all">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
@@ -131,57 +170,36 @@ export function Header() {
           </Link>
           <nav className="ml-8 hidden md:flex">
             <ul className="flex space-x-6">
-              <li>
-                <Link
-                  href="/jobs"
-                  className={`text-sm font-medium transition-colors hover:text-red-600 ${
-                    isActive("/jobs")
-                      ? "text-red-600 relative after:absolute after:bottom-[-1.2rem] after:left-0 after:h-0.5 after:w-full after:bg-red-600"
-                      : "text-gray-700"
-                  }`}
-                  aria-current={isActive("/jobs") ? "page" : undefined}
-                >
-                  求人検索
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/grandprix"
-                  className={`text-sm font-medium transition-colors hover:text-red-600 ${
-                    isActive("/grandprix")
-                      ? "text-red-600 relative after:absolute after:bottom-[-1.2rem] after:left-0 after:h-0.5 after:w-full after:bg-red-600"
-                      : "text-gray-700"
-                  }`}
-                  aria-current={isActive("/grandprix") ? "page" : undefined}
-                >
-                  就活グランプリ
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/features"
-                  className={`text-sm font-medium transition-colors hover:text-red-600 ${
-                    isActive("/features")
-                      ? "text-red-600 relative after:absolute after:bottom-[-1.2rem] after:left-0 after:h-0.5 after:w-full after:bg-red-600"
-                      : "text-gray-700"
-                  }`}
-                  aria-current={isActive("/features") ? "page" : undefined}
-                >
-                  特集
-                </Link>
-              </li>
-              {user && (
-                <li>
+              {navLinks.map((link) => (
+                <li key={link.href}>
                   <Link
-                    href={getDashboardLink()}
+                    href={link.href}
                     className={`text-sm font-medium transition-colors hover:text-red-600 ${
-                      isActive(getDashboardLink())
+                      isActive(link.href)
                         ? "text-red-600 relative after:absolute after:bottom-[-1.2rem] after:left-0 after:h-0.5 after:w-full after:bg-red-600"
                         : "text-gray-700"
                     }`}
-                    aria-current={isActive(getDashboardLink()) ? "page" : undefined}
+                    aria-current={isActive(link.href) ? "page" : undefined}
                   >
-                    {userRole === "company" ? "企業ダッシュボード" : "マイページ"}
+                    <span className="flex items-center">
+                      {link.icon && <link.icon className="mr-1 h-4 w-4" />}
+                      {link.label}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+              {!user && (
+                <li>
+                  <Link
+                    href="/company/contact"
+                    className={`text-sm font-medium transition-colors hover:text-red-600 ${
+                      isActive("/company/contact")
+                        ? "text-red-600 relative after:absolute after:bottom-[-1.2rem] after:left-0 after:h-0.5 after:w-full after:bg-red-600"
+                        : "text-gray-700"
+                    }`}
+                    aria-current={isActive("/company/contact") ? "page" : undefined}
+                  >
+                    企業の方はこちら
                   </Link>
                 </li>
               )}
