@@ -32,6 +32,12 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL("/dashboard", req.url))
     }
 
+    // ログイン済みユーザーがログインページにアクセスした場合はダッシュボードへリダイレクト
+    if (path === "/auth/signin" && session) {
+      console.log("ミドルウェア: ログイン済みユーザーがログインページにアクセス、ダッシュボードへリダイレクト")
+      return NextResponse.redirect(new URL("/dashboard", req.url))
+    }
+
     // ダッシュボード関連のパスかどうかを確認
     const isDashboardPath =
       path.startsWith("/dashboard") ||
@@ -51,13 +57,6 @@ export async function middleware(req: NextRequest) {
       // リダイレクト先のパスをエンコード
       const redirectPath = encodeURIComponent(path)
       return NextResponse.redirect(new URL(`/auth/signin?redirect=${redirectPath}`, req.url))
-    }
-
-    // ログイン済みユーザーがログインページにアクセスした場合はダッシュボードへリダイレクト
-    if (path === "/auth/signin" && session) {
-      // リダイレクトパラメータがある場合はそちらへ、なければダッシュボードへ
-      const redirectTo = req.nextUrl.searchParams.get("redirect") || "/dashboard"
-      return NextResponse.redirect(new URL(redirectTo, req.url))
     }
 
     return res

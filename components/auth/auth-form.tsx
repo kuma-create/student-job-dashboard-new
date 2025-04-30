@@ -58,11 +58,10 @@ export function AuthForm({ type = "signin", redirectUrl, error: initialError }: 
         if (error) throw error
 
         // ログイン成功後、リダイレクト
-        if (redirect && redirect.includes("/auth/signin")) {
-          window.location.href = "/dashboard"
-        } else {
-          window.location.href = redirect ? decodeURIComponent(redirect) : "/dashboard"
-        }
+        // window.location.href を使わず、router.push を使用
+        router.push(redirectPath)
+        // 強制的にページをリロード
+        router.refresh()
       } else {
         const { error } = await supabase.auth.signUp({
           email,
