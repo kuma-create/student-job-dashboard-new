@@ -2,17 +2,137 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import { Bell, Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { SignoutButton } from "@/components/auth/signout-button"
+import { createClient } from "@/lib/supabase/client"
 import { MobileNavigation } from "./mobile-navigation"
-import { useAuth } from "./auth-provider"
 
 export function Header() {
   const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const { user, userRole, profile, signOut } = useAuth()
+  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [profile, setProfile] = useState<any>(null)
+  const [userRole, setUserRole] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Supabaseクライアントを作成
+    const supabase = createClient()
+
+    // セッションを確認する関数
+    const checkSession = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+
+        // ユーザー状態を更新
+        setUser(session?.user || null)
+
+        if (session?.user) {
+          try {
+            // ユーザーロールを取得
+            const { data: roleData } = await supabase
+              .from("user_roles")
+              .select("role")
+              .eq("id", session.user.id)
+              .single()
+
+            setUserRole(roleData?.role || null)
+            console.log("User role:", roleData?.role)
+
+            // プロフィール情報を取得
+            if (roleData?.role === "student") {
+              const { data: profileData } = await supabase
+                .from("student_profiles")
+                .select("*")
+                .eq("id", session.user.id)
+                .single()
+
+              setProfile(profileData)
+            } else if (roleData?.role === "company") {
+              // 企業プロフィールがあれば取得
+              setProfile({
+                company_name: session.user.user_metadata?.company_name || "企業名未設定",
+              })
+            }
+          } catch (profileError) {
+            console.error("プロフィール取得エラー:", profileError)
+          }
+        }
+      } catch (error) {
+        console.error("セッション取得エラー:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    // 初期セッション確認
+    checkSession()
+
+    // 認証状態変更リスナー
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth state changed:", event, session?.user?.id)
+
+      // ユーザー状態を更新
+      setUser(session?.user || null)
+
+      // ユーザーロールとプロフィール情報を更新
+      if (session?.user) {
+        try {
+          const { data: roleData, error: roleError } = await supabase
+            .from("user_roles")
+            .select("role")
+            .eq("id", session.user.id)
+            .single()
+
+          if (roleError) {
+            console.error("ユーザーロール取得エラー:", roleError)
+            setUserRole(null)
+            setProfile(null)
+            return
+          }
+
+          setUserRole(roleData?.role || null)
+
+          // ユーザーロールに基づいてプロフィール情報を取得
+          if (roleData?.role === "student") {
+            const { data: profileData, error: profileError } = await supabase
+              .from("student_profiles")
+              .select("*")
+              .eq("id", session.user.id)
+              .single()
+
+            if (profileError) {
+              console.error("プロフィール取得エラー:", profileError)
+            } else {
+              setProfile(profileData)
+            }
+          } else if (roleData?.role === "company") {
+            // 企業プロフィールがあれば取得
+            setProfile({
+              company_name: session.user.user_metadata?.company_name || "企業名未設定",
+            })
+          }
+        } catch (error) {
+          console.error("ユーザーロール/プロフィール更新エラー:", error)
+          setUserRole(null)
+          setProfile(null)
+        }
+      } else {
+        setUserRole(null)
+        setProfile(null)
+      }
+    })
+
+    // クリーンアップ関数
+    return () => {
+      authListener.subscription.unsubscribe()
+    }
+  }, []) // 依存配列を空にして、マウント時のみ実行
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen)
@@ -21,6 +141,11 @@ export function Header() {
   const isActive = (path: string) => {
     return pathname === path || pathname?.startsWith(path + "/")
   }
+
+  // デバッグ用
+  useEffect(() => {
+    console.log("Current auth state:", { user: user?.id, userRole, loading })
+  }, [user, userRole, loading])
 
   // ダッシュボードへのリンク - ユーザーロールに基づいて変更
   const getDashboardLink = () => {
@@ -111,13 +236,11 @@ export function Header() {
                 </Link>
               </div>
               <div className="hidden md:block">
-                <Button variant="outline" size="sm" onClick={signOut} className="text-sm">
-                  ログアウト
-                </Button>
+                <SignoutButton />
               </div>
             </>
           ) : (
-            // ユーザーがログインしていない場合
+            // ユーザーがログインしていない場合（ローディング中も含む）
             <div className="hidden space-x-2 md:flex">
               <Button asChild variant="outline">
                 <Link href="/auth/signin">ログイン</Link>
@@ -135,9 +258,7 @@ export function Header() {
         </div>
       </div>
 
-      {isMenuOpen && (
-        <MobileNavigation isAuthenticated={!!user} userRole={userRole} onClose={() => setIsMenuOpen(false)} />
-      )}
+      {isMenuOpen && <MobileNavigation user={user} userRole={userRole} onClose={() => setIsMenuOpen(false)} />}
     </header>
   )
 }

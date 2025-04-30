@@ -6,12 +6,11 @@ import { SignoutButton } from "@/components/auth/signout-button"
 import { Home, Search, FileText, User, MessageSquare, Info, Building, Users, PlusCircle, Settings } from "lucide-react"
 
 interface MobileNavigationProps {
-  user: any
+  user?: any
   userRole: string | null
   onClose: () => void
 }
 
-// デフォルトエクスポートから名前付きエクスポートに変更
 export function MobileNavigation({ user, userRole, onClose }: MobileNavigationProps) {
   const pathname = usePathname()
   const isCompanyUser = userRole === "company"

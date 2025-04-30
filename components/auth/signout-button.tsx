@@ -1,42 +1,52 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { createClient } from "@/lib/supabase/client"
-import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { createClient } from "@/lib/supabase/client"
+import { Button } from "@/components/ui/button"
+import { Loader2 } from "lucide-react"
 
 interface SignoutButtonProps {
+  className?: string // classNameプロパティを追加
   onSignOutSuccess?: () => void
 }
 
-export function SignoutButton({ onSignOutSuccess }: SignoutButtonProps) {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
+export function SignoutButton({ className, onSignOutSuccess }: SignoutButtonProps) {
+  const [loading, setLoading] = useState(false)
 
   const handleSignOut = async () => {
+    setLoading(true)
     try {
-      setIsLoading(true)
       const supabase = createClient()
+
+      // サインアウト処理
       await supabase.auth.signOut()
+
+      // サーバーサイドのセッションもクリア
+      await fetch("/auth/signout", { method: "POST" })
 
       // コールバック関数があれば実行
       if (onSignOutSuccess) {
         onSignOutSuccess()
+      } else {
+        // 強制的にページをリロード
+        window.location.href = "/"
       }
-
-      // ホームページにリダイレクト
-      router.push("/")
-      router.refresh()
     } catch (error) {
       console.error("サインアウトエラー:", error)
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
   return (
-    <Button variant="outline" size="sm" onClick={handleSignOut} disabled={isLoading} className="text-sm">
-      {isLoading ? "処理中..." : "ログアウト"}
+    <Button
+      variant="outline"
+      onClick={handleSignOut}
+      disabled={loading}
+      className={className} // classNameを適用
+    >
+      {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+      ログアウト
     </Button>
   )
 }
