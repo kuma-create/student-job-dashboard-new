@@ -32,20 +32,6 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL("/dashboard", req.url))
     }
 
-    // 認証が必要なルートへの未認証アクセスをリダイレクト
-    const isAuthRoute =
-      path.startsWith("/auth") &&
-      path !== "/auth/callback" &&
-      path !== "/auth/signout" &&
-      path !== "/auth/update-password" &&
-      path !== "/auth/reset-password"
-    const isProtectedRoute =
-      path.startsWith("/profile") ||
-      path.startsWith("/company") ||
-      path.startsWith("/offers") ||
-      path.startsWith("/chat") ||
-      path === "/dashboard"
-
     // ダッシュボード関連のパスかどうかを確認
     const isDashboardPath =
       path.startsWith("/dashboard") ||

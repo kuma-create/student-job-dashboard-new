@@ -7,7 +7,6 @@ import type { Database } from "@/lib/database.types"
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get("code")
-  const next = requestUrl.searchParams.get("next")
 
   // リダイレクト先を取得
   let redirectTo = requestUrl.searchParams.get("next") || "/dashboard"
@@ -19,24 +18,12 @@ export async function GET(request: NextRequest) {
   }
 
   if (code) {
-    const cookieStore = cookies()
-    const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
-
     try {
+      const cookieStore = cookies()
+      const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
+
       // セッションの交換
       await supabase.auth.exchangeCodeForSession(code)
-
-      // パスワードリセットの場合は、nextパラメータで指定されたURLにリダイレクト
-      if (next) {
-        // リダイレクトループを防止
-        if (next.includes("/auth/signin")) {
-          console.log(`Redirecting to dashboard instead of ${next} to prevent loop`)
-          return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
-        }
-
-        console.log(`Redirecting to next URL: ${next}`)
-        return NextResponse.redirect(`${requestUrl.origin}${next}`)
-      }
 
       // ユーザー情報を取得
       const {
@@ -71,7 +58,7 @@ export async function GET(request: NextRequest) {
         }
       }
     } catch (error) {
-      console.error("Error exchanging code for session:", error)
+      console.error("認証コールバックでエラーが発生しました:", error)
       // エラーが発生した場合でもリダイレクトを続行
     }
   }

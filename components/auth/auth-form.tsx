@@ -52,18 +52,11 @@ export default function AuthForm({ type }: { type: "signin" | "signup" }) {
         if (error) throw error
 
         // ログイン成功後、リダイレクト
-        // ロールに応じてリダイレクト
-        // if (userRole.role === "company") {
-        //   window.location.href = "/company/dashboard"
-        // } else {
-        // redirectUrlが/auth/signinを含む場合は、単純に/dashboardにリダイレクト
         if (redirect && redirect.includes("/auth/signin")) {
           window.location.href = "/dashboard"
         } else {
-          window.location.href = redirect || "/dashboard"
+          window.location.href = redirect ? decodeURIComponent(redirect) : "/dashboard"
         }
-        // }
-        router.refresh()
       } else {
         const { error } = await supabase.auth.signUp({
           email,
@@ -86,14 +79,7 @@ export default function AuthForm({ type }: { type: "signin" | "signup" }) {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center w-full max-w-md mx-auto mt-8">
-      <h1 className="text-2xl font-bold mb-6">{type === "signin" ? "ログイン" : "新規登録"}</h1>
-      <p className="text-center mb-6">
-        {type === "signin"
-          ? "アカウントにログインして、就職活動を始めましょう"
-          : "新しいアカウントを作成して、就職活動を始めましょう"}
-      </p>
-
+    <div className="flex flex-col items-center justify-center w-full max-w-md mx-auto">
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 w-full">
           {error}
@@ -169,21 +155,6 @@ export default function AuthForm({ type }: { type: "signin" | "signup" }) {
             </Link>
           </p>
         )}
-      </div>
-
-      <div className="mt-4">
-        <Link href="/" className="text-sm text-gray-600 hover:underline flex items-center">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-4 w-4 mr-1"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          ホームに戻る
-        </Link>
       </div>
     </div>
   )

@@ -2,7 +2,7 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { Suspense } from "react"
 
-import { AuthForm } from "@/components/auth/auth-form"
+import AuthForm from "@/components/auth/auth-form"
 
 export const viewport = {
   width: "device-width",
@@ -15,9 +15,6 @@ export default function SignInPage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined }
 }) {
-  const redirectUrl = typeof searchParams.redirect === "string" ? searchParams.redirect : "/dashboard"
-  const error = typeof searchParams.error === "string" ? searchParams.error : null
-
   return (
     <div className="flex min-h-screen flex-col">
       <div className="container flex flex-1 flex-col items-center justify-center px-4 py-12">
@@ -27,20 +24,9 @@ export default function SignInPage({
             <p className="text-gray-500">アカウントにログインして、就職活動を始めましょう</p>
           </div>
           <Suspense fallback={<div className="text-center py-4">読み込み中...</div>}>
-            <AuthForm type="signin" redirectUrl={redirectUrl} error={error} />
+            <AuthForm type="signin" />
           </Suspense>
           <div className="mt-4 text-center">
-            <Link href="/auth/reset-password" className="text-sm text-red-600 hover:underline">
-              パスワードをお忘れですか？
-            </Link>
-          </div>
-          <div className="text-center text-sm">
-            アカウントをお持ちでない方は{" "}
-            <Link href="/auth/signup?type=student" className="font-medium text-red-600 hover:underline">
-              新規登録
-            </Link>
-          </div>
-          <div className="mt-4">
             <Link href="/" className="inline-flex items-center text-sm text-gray-500 hover:text-red-600">
               <ArrowLeft className="mr-1 h-4 w-4" />
               ホームに戻る
